@@ -270,24 +270,103 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
 <div class="ob" id="onboard" style="display:none;">
   <div class="ob-box">
     <div class="ob-logo">The Daily Ledger</div>
-    <div class="ob-tagline">Your all-in-one task and daily planner. Let's get you set up in seconds.</div>
-    <div class="fg">
-      <label>Your name <span class="req">*</span></label>
-      <input type="text" id="obName" placeholder="e.g. Kwenzakele" maxlength="40">
-      <span class="err-msg" id="obNameErr">Please enter your name.</span>
+    <div class="ob-tagline" id="obTagline">Your all-in-one task and daily planner. Let's get you set up in seconds.</div>
+
+    <!-- STEP 1: name + currency -->
+    <div id="obStepName">
+      <div class="fg">
+        <label>Your full name <span class="req">*</span></label>
+        <input type="text" id="obName" placeholder="e.g. Kwenzakele Shongwe" maxlength="60">
+        <span class="err-msg" id="obNameErr">Please enter your first and last name.</span>
+      </div>
+      <div class="fg">
+        <label>Preferred currency (for grocery)</label>
+        <select id="obCurr">
+          <option value="R">R — South African Rand</option>
+          <option value="$">$ — US Dollar</option>
+          <option value="£">£ — British Pound</option>
+          <option value="€">€ — Euro</option>
+          <option value="₦">₦ — Nigerian Naira</option>
+          <option value="KSh">KSh — Kenyan Shilling</option>
+        </select>
+      </div>
+      <button class="btn primary" id="obBtn">Continue</button>
     </div>
-    <div class="fg">
-      <label>Preferred currency (for grocery)</label>
-      <select id="obCurr">
-        <option value="R">R — South African Rand</option>
-        <option value="$">$ — US Dollar</option>
-        <option value="£">£ — British Pound</option>
-        <option value="€">€ — Euro</option>
-        <option value="₦">₦ — Nigerian Naira</option>
-        <option value="KSh">KSh — Kenyan Shilling</option>
-      </select>
+
+    <!-- STEP 2: phone + pin -->
+    <div id="obStepPin" style="display:none;">
+      <div class="fg">
+        <label>Phone number <span class="req">*</span></label>
+        <input type="tel" id="obPhone" placeholder="e.g. 0821234567" maxlength="20">
+        <span class="err-msg" id="obPhoneErr">Please enter a phone number (used to recover a forgotten PIN).</span>
+      </div>
+      <div class="fg">
+        <label>Create a 4-digit PIN <span class="req">*</span></label>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" id="obPin" placeholder="••••" maxlength="4">
+        <span class="err-msg" id="obPinErr">PIN must be exactly 4 digits.</span>
+      </div>
+      <div class="fg">
+        <label>Confirm PIN <span class="req">*</span></label>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" id="obPin2" placeholder="••••" maxlength="4">
+        <span class="err-msg" id="obPin2Err">PINs do not match.</span>
+      </div>
+      <button class="btn secondary" id="obBack" style="margin-bottom:8px;">Back</button>
+      <button class="btn primary" id="obFinish">Finish setup</button>
     </div>
-    <button class="btn primary" id="obBtn">Get started</button>
+  </div>
+</div>
+
+<!-- LOCK SCREEN (returning user) -->
+<div class="ob" id="lockScreen" style="display:none;">
+  <div class="ob-box">
+    <div class="ob-logo" id="lockGreeting">Welcome back</div>
+    <div class="ob-tagline">Enter your 4-digit PIN to continue.</div>
+
+    <!-- STEP: enter pin -->
+    <div id="lockStepPin">
+      <div class="fg">
+        <label>PIN</label>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" id="lockPin" placeholder="••••" maxlength="4" autofocus>
+        <span class="err-msg" id="lockPinErr">Incorrect PIN. Please try again.</span>
+      </div>
+      <button class="btn primary" id="lockBtn" style="margin-bottom:10px;">Unlock</button>
+      <button class="btn secondary" id="lockForgotBtn">Forgot PIN?</button>
+    </div>
+
+    <!-- STEP: send otp -->
+    <div id="lockStepOtpSend" style="display:none;">
+      <p style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px;">We'll send a one-time code to your registered number <strong id="lockPhoneMasked"></strong>.</p>
+      <button class="btn accent" id="lockSendOtpBtn" style="margin-bottom:10px;">Send OTP</button>
+      <button class="btn secondary" id="lockOtpBackBtn">Back to PIN</button>
+    </div>
+
+    <!-- STEP: verify otp -->
+    <div id="lockStepOtpVerify" style="display:none;">
+      <div class="banner pay show" id="otpDemoBanner" style="margin-bottom:14px;"></div>
+      <div class="fg">
+        <label>Enter the 6-digit code</label>
+        <input type="text" inputmode="numeric" pattern="[0-9]*" id="otpInput" placeholder="••••••" maxlength="6">
+        <span class="err-msg" id="otpErr">Incorrect or expired code.</span>
+      </div>
+      <button class="btn primary" id="otpVerifyBtn" style="margin-bottom:8px;">Verify</button>
+      <button class="btn secondary" id="otpResendBtn" style="margin-bottom:8px;">Resend code</button>
+      <button class="btn secondary" id="otpBackBtn">Back to PIN</button>
+    </div>
+
+    <!-- STEP: reset pin -->
+    <div id="lockStepReset" style="display:none;">
+      <div class="fg">
+        <label>New 4-digit PIN <span class="req">*</span></label>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" id="resetPin1" placeholder="••••" maxlength="4">
+        <span class="err-msg" id="resetPin1Err">PIN must be exactly 4 digits.</span>
+      </div>
+      <div class="fg">
+        <label>Confirm new PIN <span class="req">*</span></label>
+        <input type="password" inputmode="numeric" pattern="[0-9]*" id="resetPin2" placeholder="••••" maxlength="4">
+        <span class="err-msg" id="resetPin2Err">PINs do not match.</span>
+      </div>
+      <button class="btn primary" id="resetPinBtn">Save new PIN</button>
+    </div>
   </div>
 </div>
 
@@ -296,6 +375,7 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
   <div class="topbar-logo" id="topName">Daily Ledger</div>
   <button class="t-btn" id="darkBtn">Dark</button>
   <button class="t-btn" id="remindBtn">Reminders</button>
+  <button class="t-btn" id="settingsBtn">⚙</button>
 </div>
 
 <!-- MAIN TABS -->
@@ -304,6 +384,7 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
   <button class="tab" data-tab="budget">Budget</button>
   <button class="tab" data-tab="future">Future Plans</button>
   <button class="tab" data-tab="addcat">+ Add category</button>
+  <button class="tab" data-tab="settings" style="display:none;">Settings</button>
 </div>
 
 <!-- SUBTABS (To-Do and custom sticky) -->
@@ -419,6 +500,7 @@ const GROC_CATS=['Food','Toiletries','Detergents'];
 /* ==================== STATE ==================== */
 let S={
   name:'',currency:'R',dark:false,reminders:false,
+  phone:'',pinHash:'',
   cats:[],        // custom categories
   items:{},       // {catId:[...items]}
   histOpen:{},
@@ -444,6 +526,42 @@ let chosenIcon=ICONS[0];
 let notifLastDay='';
 let editingExpId=null;
 let deletingExpId=null;
+let obStep='name';         // name | pin  (first-time onboarding)
+let pinAttempts=0;
+let otpCode=null;
+let otpExpiry=0;
+
+/* ==================== NAME / PIN HELPERS ==================== */
+function isFullName(name){
+  return name.trim().split(/\s+/).filter(Boolean).length>=2;
+}
+function isValidPin(p){
+  return /^\d{4}$/.test(p);
+}
+async function hashPin(pin){
+  const raw='dl_pin_'+pin;
+  if(window.crypto&&window.crypto.subtle&&window.isSecureContext!==false){
+    try{
+      const enc=new TextEncoder().encode(raw);
+      const buf=await crypto.subtle.digest('SHA-256',enc);
+      return[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+    }catch(e){/* fall through to non-crypto hash below */}
+  }
+  // Fallback for contexts without Web Crypto (e.g. some file:// or older browsers)
+  let h1=0x811c9dc5,h2=1315423911;
+  for(let i=0;i<raw.length;i++){
+    const c=raw.charCodeAt(i);
+    h1=(h1^c)>>>0;h1=Math.imul(h1,16777619)>>>0;
+    h2=((h2<<5)+h2+c)>>>0;
+  }
+  return'fb_'+h1.toString(16).padStart(8,'0')+h2.toString(16).padStart(8,'0');
+}
+function maskPhone(p){
+  if(!p)return'—';
+  const digits=p.replace(/\D/g,'');
+  if(digits.length<4)return'••••';
+  return'•••• '+digits.slice(-3);
+}
 
 /* ==================== BOOT ==================== */
 function boot(){
@@ -461,10 +579,28 @@ function boot(){
   if(!S.budget.grocFilter)S.budget.grocFilter='All';
   applyDark();
   updateBtns();
-  if(!S.name){
+
+  if(!S.pinHash){
+    // First time (or upgrading from a save with no PIN yet) — run onboarding.
+    obStep=S.name?'pin':'name';
+    if(S.name){
+      document.getElementById('obName').value=S.name;
+      document.getElementById('obPhone').value=S.phone||'';
+    }
+    showObStep();
     document.getElementById('onboard').style.display='flex';
     return;
   }
+  // Returning user — require PIN before showing the app.
+  document.getElementById('onboard').style.display='none';
+  document.getElementById('lockGreeting').textContent='Welcome back, '+S.name;
+  document.getElementById('lockPhoneMasked').textContent=maskPhone(S.phone);
+  showLockStep('pin');
+  document.getElementById('lockScreen').style.display='flex';
+}
+function enterApp(){
+  document.getElementById('onboard').style.display='none';
+  document.getElementById('lockScreen').style.display='none';
   document.getElementById('topName').textContent=S.name+"'s Ledger";
   render();
   checkBanners();
@@ -1717,15 +1853,110 @@ function hideE(eid,iid){
   const i=document.getElementById(iid);if(i)i.classList.remove('err');
 }
 
-/* ==================== ONBOARDING ==================== */
+/* ==================== ONBOARDING (multi-step) ==================== */
+function showObStep(){
+  document.getElementById('obStepName').style.display=obStep==='name'?'block':'none';
+  document.getElementById('obStepPin').style.display=obStep==='pin'?'block':'none';
+  document.getElementById('obTagline').textContent=obStep==='name'
+    ?"Your all-in-one task and daily planner. Let's get you set up in seconds."
+    :'Set a phone number and PIN so you can lock the app.';
+}
 document.getElementById('obBtn').onclick=()=>{
   const name=document.getElementById('obName').value.trim();
-  if(!name){document.getElementById('obNameErr').className='err-msg show';document.getElementById('obName').classList.add('err');return;}
-  document.getElementById('obNameErr').className='err-msg';
+  let ok=true;
+  if(!isFullName(name)){showE('obNameErr','obName');ok=false;}else hideE('obNameErr','obName');
+  if(!ok)return;
   S.name=name;S.currency=document.getElementById('obCurr').value;
-  save();document.getElementById('onboard').style.display='none';
-  document.getElementById('topName').textContent=S.name+"'s Ledger";
-  render();checkBanners();checkPayBanner();setInterval(checkBanners,60000);setInterval(checkPayBanner,60000);
+  obStep='pin';showObStep();
+};
+document.getElementById('obBack').onclick=()=>{obStep='name';showObStep();};
+document.getElementById('obFinish').onclick=async()=>{
+  const phone=document.getElementById('obPhone').value.trim();
+  const pin=document.getElementById('obPin').value.trim();
+  const pin2=document.getElementById('obPin2').value.trim();
+  let ok=true;
+  if(!phone){showE('obPhoneErr','obPhone');ok=false;}else hideE('obPhoneErr','obPhone');
+  if(!isValidPin(pin)){showE('obPinErr','obPin');ok=false;}else hideE('obPinErr','obPin');
+  if(!ok)return;
+  if(pin!==pin2){showE('obPin2Err','obPin2');return;}else hideE('obPin2Err','obPin2');
+  S.phone=phone;
+  S.pinHash=await hashPin(pin);
+  save();
+  enterApp();
+};
+
+/* ==================== LOCK SCREEN (returning user) ==================== */
+function showLockStep(step){
+  ['Pin','OtpSend','OtpVerify','Reset'].forEach(s=>{
+    document.getElementById('lockStep'+s).style.display=(s.toLowerCase()===step.toLowerCase())?'block':'none';
+  });
+}
+document.getElementById('lockBtn').onclick=async()=>{
+  const pin=document.getElementById('lockPin').value.trim();
+  if(!isValidPin(pin)){showE('lockPinErr','lockPin');return;}
+  const h=await hashPin(pin);
+  if(h===S.pinHash){
+    hideE('lockPinErr','lockPin');pinAttempts=0;
+    document.getElementById('lockPin').value='';
+    enterApp();
+  }else{
+    pinAttempts++;
+    document.getElementById('lockPinErr').textContent=pinAttempts>=5
+      ?'Still incorrect. Use "Forgot PIN?" below to reset it.'
+      :'Incorrect PIN. Please try again.';
+    showE('lockPinErr','lockPin');
+    document.getElementById('lockPin').value='';
+  }
+};
+document.getElementById('lockForgotBtn').onclick=()=>{
+  document.getElementById('lockPhoneMasked').textContent=maskPhone(S.phone);
+  showLockStep('otpsend');
+};
+document.getElementById('lockOtpBackBtn').onclick=()=>{showLockStep('pin');};
+document.getElementById('otpBackBtn').onclick=()=>{otpCode=null;showLockStep('pin');};
+
+function sendDemoOtp(){
+  otpCode=String(Math.floor(100000+Math.random()*900000));
+  otpExpiry=Date.now()+5*60*1000;
+  const banner=document.getElementById('otpDemoBanner');
+  banner.innerHTML=`<div class="banner-title">Demo OTP (no SMS gateway connected)</div>
+    This app runs entirely in your browser with no backend server, so it can't send a real text message.
+    Your one-time code is: <strong style="font-size:18px;letter-spacing:2px;">${otpCode}</strong><br>
+    <span style="font-size:12px;">Valid for 5 minutes. In a production version, this code would be texted to ${maskPhone(S.phone)} by a backend SMS service instead of being shown here.</span>`;
+  document.getElementById('otpInput').value='';
+  hideE('otpErr','otpInput');
+  showLockStep('otpverify');
+}
+document.getElementById('lockSendOtpBtn').onclick=sendDemoOtp;
+document.getElementById('otpResendBtn').onclick=sendDemoOtp;
+document.getElementById('otpVerifyBtn').onclick=()=>{
+  const code=document.getElementById('otpInput').value.trim();
+  if(!otpCode||Date.now()>otpExpiry||code!==otpCode){
+    showE('otpErr','otpInput');return;
+  }
+  hideE('otpErr','otpInput');
+  otpCode=null;pinAttempts=0;
+  document.getElementById('resetPin1').value='';
+  document.getElementById('resetPin2').value='';
+  showLockStep('reset');
+};
+document.getElementById('resetPinBtn').onclick=async()=>{
+  const p1=document.getElementById('resetPin1').value.trim();
+  const p2=document.getElementById('resetPin2').value.trim();
+  let ok=true;
+  if(!isValidPin(p1)){showE('resetPin1Err','resetPin1');ok=false;}else hideE('resetPin1Err','resetPin1');
+  if(!ok)return;
+  if(p1!==p2){showE('resetPin2Err','resetPin2');return;}else hideE('resetPin2Err','resetPin2');
+  S.pinHash=await hashPin(p1);
+  save();
+  document.getElementById('lockPin').value='';
+  showLockStep('pin');
+  enterApp();
+};
+
+/* ==================== SETTINGS ACCESS ==================== */
+document.getElementById('settingsBtn').onclick=()=>{
+  document.querySelector('[data-tab="settings"]').click();
 };
 
 /* ==================== BOOT ==================== */
