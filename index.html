@@ -468,6 +468,25 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
   </div>
 </div>
 
+<!-- ADD/EDIT INCOME SOURCE (BUDGET) MODAL -->
+<div class="modal-bg" id="incomeModal">
+  <div class="modal-box">
+    <div class="modal-title" id="incomeModalTitle">Add income source</div>
+    <div class="fg"><label>Label (optional)</label>
+      <input type="text" id="incLabel" placeholder="e.g. Main job, Side hustle, Partner's salary" maxlength="60"></div>
+    <div class="fg"><label>Amount <span class="req">*</span></label>
+      <input type="number" id="incAmount" min="0.01" step="0.01" placeholder="0.00">
+      <span class="err-msg" id="incAmountErr">Please enter an amount.</span></div>
+    <div class="fg"><label>Pay day (day of month) <span class="req">*</span></label>
+      <input type="number" id="incPayday" min="1" max="31" placeholder="e.g. 25">
+      <span class="err-msg" id="incPaydayErr">Please enter a day between 1 and 31.</span></div>
+    <div class="modal-actions">
+      <button class="m-cancel" id="incomeCancel">Cancel</button>
+      <button class="btn primary" style="flex:1" id="incomeSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- DELETE MODAL -->
 <div class="modal-bg" id="delModal">
   <div class="modal-box">
@@ -505,7 +524,7 @@ let S={
   items:{},       // {catId:[...items]}
   histOpen:{},
   budget:{
-    salary:0,payday:25,
+    incomes:[],        // [{id,label,amount,payday}] — multiple income sources, combined for all calculations
     expenses:[],       // [{id,name,amount,category,dueDay}]
     ticked:{},         // {'YYYY-MM':{expId:true}}
     remindersOn:false,
@@ -526,6 +545,7 @@ let chosenIcon=ICONS[0];
 let notifLastDay='';
 let editingExpId=null;
 let deletingExpId=null;
+let editingIncId=null;
 let obStep='name';         // name | pin  (first-time onboarding)
 let pinAttempts=0;
 let otpCode=null;
@@ -572,8 +592,30 @@ function boot(){
     if(!S.items[id])S.items[id]=[];
   });
   S.cats.forEach(c=>{if(!S.items[c.id])S.items[c.id]=[];});
+  // Migrate old single date/time items (Todo, Checklist, Sticky) to the new
+  // start-date/time + end-date/time range fields. Grocery has no date/time,
+  // and Goals intentionally keep a single target date, so both are skipped.
+  const rangeListIds=['todo_personal','todo_work']
+    .concat(S.cats.filter(c=>c.type==='checklist'||c.type==='sticky').map(c=>c.id));
+  rangeListIds.forEach(id=>{
+    (S.items[id]||[]).forEach(it=>{
+      if(it.startDate===undefined){
+        it.startDate=it.date||'';it.startTime=it.time||'';
+        it.endDate=it.date||'';it.endTime=it.time||'';
+      }
+    });
+  });
   // Ensure budget state exists (for upgrades from older saved data)
-  if(!S.budget)S.budget={salary:0,payday:25,expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:null,grocFilter:'All'};
+  if(!S.budget)S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:null,grocFilter:'All'};
+  // Migrate old single salary/payday into the new multi-income list.
+  if(!S.budget.incomes){
+    S.budget.incomes=[];
+    if(S.budget.salary){
+      S.budget.incomes.push({id:uid(),label:'Salary',amount:S.budget.salary,payday:S.budget.payday||25});
+    }
+    delete S.budget.salary;delete S.budget.payday;
+    save();
+  }
   const now=new Date();
   S.budget.calMonth={year:now.getFullYear(),month:now.getMonth()};
   if(!S.budget.grocFilter)S.budget.grocFilter='All';
@@ -616,7 +658,31 @@ const esc=s=>(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','
 const fmt=n=>(S.currency||'R')+' '+Number(n||0).toFixed(2);
 const todayStr=()=>new Date().toISOString().slice(0,10);
 const isPast=(d,t='23:59')=>d?new Date(d+'T'+t)<new Date():false;
-const dueDate=it=>it.date?new Date(it.date+'T'+(it.time||'23:59')):null;
+const dueDate=it=>{
+  // An item is "due"/overdue once its END moment has passed (for items with
+  // a start+end range). Falls back to the old single date/time field for
+  // types that only ever have one date (e.g. Goals), and to startDate if an
+  // end wasn't set for some reason.
+  if(it.endDate)return new Date(it.endDate+'T'+(it.endTime||'23:59'));
+  if(it.startDate)return new Date(it.startDate+'T'+(it.startTime||'23:59'));
+  return it.date?new Date(it.date+'T'+(it.time||'23:59')):null;
+};
+const startMoment=it=>it.startDate?new Date(it.startDate+'T'+(it.startTime||'00:00')):null;
+function combineDT(d,t){return d?new Date(d+'T'+(t||'00:00')):null;}
+function rangeOk(sd,st,ed,et){
+  const s=combineDT(sd,st),e=combineDT(ed,et);
+  if(!s||!e)return true;
+  return e>=s;
+}
+function fmtRange(it){
+  if(!it.startDate&&!it.date)return'No date';
+  if(!it.startDate)return it.date+(it.time?' at '+it.time:''); // legacy single-date item (e.g. Goals)
+  const sameDay=it.startDate===it.endDate;
+  const startStr=it.startDate+(it.startTime?' '+it.startTime:'');
+  if(!it.endDate||(sameDay&&it.startTime===it.endTime))return startStr;
+  const endStr=sameDay?(it.endTime||''):(it.endDate+(it.endTime?' '+it.endTime:''));
+  return startStr+' → '+endStr;
+}
 const classify=it=>{if(it.done)return'done';const d=dueDate(it);return(d&&d<=new Date())?'missed':'active';};
 const pTag=p=>`<span class="ptag ${p||'medium'}">${p||'medium'}</span>`;
 const sTag=s=>s==='done'?'<span class="stag done">Done</span>':s==='missed'?'<span class="stag missed">Missed</span>':'';
@@ -651,12 +717,12 @@ function checkBanners(){
   const overdue=[];
   ['todo_personal','todo_work'].concat(S.cats.map(c=>c.id)).forEach(id=>{
     (S.items[id]||[]).forEach(it=>{
-      if(!it.done&&it.date){const d=dueDate(it);if(d&&d<=now)overdue.push(it);}
+      if(!it.done&&(it.startDate||it.date)){const d=dueDate(it);if(d&&d<=now)overdue.push(it);}
     });
   });
   if(overdue.length){
     banner.className='banner due show';
-    banner.innerHTML=`<div class="banner-title">Overdue tasks (${overdue.length})</div>${overdue.map(it=>'• '+esc(it.title)+' — '+it.date+(it.time?' at '+it.time:'')).join('<br>')}`;
+    banner.innerHTML=`<div class="banner-title">Overdue tasks (${overdue.length})</div>${overdue.map(it=>'• '+esc(it.title)+' — '+fmtRange(it)).join('<br>')}`;
     if(S.reminders&&now.getHours()>=20&&'Notification'in window&&Notification.permission==='granted'){
       const d=now.toISOString().slice(0,10);
       if(notifLastDay!==d){new Notification('Overdue tasks',{body:overdue.length+' task(s) overdue'});notifLastDay=d;}
@@ -672,6 +738,9 @@ const bThisMonth=()=>new Date().getMonth();
 const bTodayNum=()=>new Date().getDate();
 const bFmt=n=>(S.currency||'R')+' '+Number(n||0).toFixed(2);
 function ordinal(n){const s=['th','st','nd','rd'];const v=n%100;return s[(v-20)%10]||s[v]||s[0];}
+function totalSalary(){return(S.budget.incomes||[]).reduce((s,i)=>s+(i.amount||0),0);}
+function paydaySet(){return new Set((S.budget.incomes||[]).map(i=>i.payday).filter(Boolean));}
+function earliestPayday(){const arr=[...paydaySet()];return arr.length?Math.min(...arr):null;}
 function getTicked(mk){return S.budget.ticked[mk]||{};}
 function allExpensesDone(mk){
   if(!S.budget.expenses.length)return true;
@@ -688,11 +757,12 @@ function grocTotalAll(){return (S.items.grocery||[]).reduce((s,g)=>s+(g.qty||0)*
 function checkPayBanner(){
   const banner=document.getElementById('payBanner');
   if(!banner)return;
-  if(!S.budget.salary){banner.className='pay-banner';return;}
+  if(!totalSalary()){banner.className='pay-banner';return;}
   const now=new Date();
   const mk=bThisMonthKey();
   const done=allExpensesDone(mk);
-  const isPaydayOrLater=bTodayNum()>=(S.budget.payday||25);
+  const ep=earliestPayday();
+  const isPaydayOrLater=ep!==null&&bTodayNum()>=ep;
   const isEveningOrLater=now.getHours()>=20;
   const shouldRemind=!done&&isPaydayOrLater&&S.budget.expenses.length>0;
   if(shouldRemind){
@@ -765,8 +835,8 @@ function renderTodo(){
   const isWork=activeSub==='work';
   const all=S.items[listId]||[];
   const priO={high:0,medium:1,low:2};
-  const active=all.filter(i=>classify(i)==='active').sort((a,b)=>(priO[a.priority||'medium'])-(priO[b.priority||'medium'])||(a.date||'').localeCompare(b.date||''));
-  const hist=all.filter(i=>classify(i)!=='active').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const active=all.filter(i=>classify(i)==='active').sort((a,b)=>(priO[a.priority||'medium'])-(priO[b.priority||'medium'])||(a.startDate||'').localeCompare(b.startDate||''));
+  const hist=all.filter(i=>classify(i)!=='active').sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
 
   let html=`<div class="card">
     <div class="card-label">Add ${isWork?'work':'personal'} task</div>
@@ -781,16 +851,29 @@ function renderTodo(){
     </div>
     <div class="frow">
       <div class="fg">
-        <label>Date <span class="req">*</span></label>
-        <input type="date" id="fDate" min="${todayStr()}">
-        <span class="err-msg" id="fDateErr">Please select a date.</span>
+        <label>Start date <span class="req">*</span></label>
+        <input type="date" id="fStartDate" min="${todayStr()}">
+        <span class="err-msg" id="fStartDateErr">Please select a start date.</span>
       </div>
       <div class="fg">
-        <label>Time <span class="req">*</span></label>
-        <input type="time" id="fTime">
-        <span class="err-msg" id="fTimeErr">Please select a time.</span>
+        <label>Start time <span class="req">*</span></label>
+        <input type="time" id="fStartTime">
+        <span class="err-msg" id="fStartTimeErr">Please select a start time.</span>
       </div>
     </div>
+    <div class="frow">
+      <div class="fg">
+        <label>End date <span class="req">*</span></label>
+        <input type="date" id="fEndDate" min="${todayStr()}">
+        <span class="err-msg" id="fEndDateErr">Please select an end date.</span>
+      </div>
+      <div class="fg">
+        <label>End time <span class="req">*</span></label>
+        <input type="time" id="fEndTime">
+        <span class="err-msg" id="fEndTimeErr">Please select an end time.</span>
+      </div>
+    </div>
+    <span class="err-msg" id="fRangeErr">End must be on or after the start.</span>
     <div class="fg">
       <label>Priority <span class="req">*</span></label>
       <select id="fPri">
@@ -817,7 +900,7 @@ function todoRow(it,listId,isHist){
     <div class="li-body">
       <div class="li-title ${it.done?'done':''}">${isHist?sTag(st)+' ':''}${pTag(it.priority)} ${esc(it.title)}</div>
       ${it.desc?`<div class="li-desc">${esc(it.desc)}</div>`:''}
-      <div class="li-meta ${late?'late':''}">${late?'OVERDUE — ':''}${it.date||'No date'}${it.time?' at '+it.time:''}</div>
+      <div class="li-meta ${late?'late':''}">${late?'OVERDUE — ':''}${fmtRange(it)}</div>
     </div>
     ${favBtn(it)}
     <div class="li-actions">
@@ -900,25 +983,39 @@ function renderBudget(){
 
 function renderBudgetOverview(){
   const b=S.budget;
-  if(!b.salary){
-    return gateCard('Get started with your budget','Add your monthly salary and pay day in Settings first. Once that\'s set, you can add your monthly bills and grocery items.');
+  const salary=totalSalary();
+  if(!salary){
+    return gateCard('Get started with your budget','Add at least one income source (and its pay day) in Settings first. Once that\'s set, you can add your monthly bills and grocery items.');
   }
   const mk=bThisMonthKey();
   const ticked=getTicked(mk);
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
   const paidExp=b.expenses.filter(e=>ticked[e.id]).reduce((s,e)=>s+(e.amount||0),0);
   const totalGroc=grocTotalAll();
-  const pct=totalExp>0?Math.min((totalExp/(b.salary||1))*100,100):0;
+  const pct=totalExp>0?Math.min((totalExp/(salary||1))*100,100):0;
   const pctClass=pct>90?'over':pct>70?'warn':'';
   const done=allExpensesDone(mk);
   const hasExp=b.expenses.length>0;
   const hasGroc=(S.items.grocery||[]).length>0;
+  const incomes=b.incomes||[];
+  const paydays=[...paydaySet()].sort((a,b2)=>a-b2);
 
   let html=`<div class="salary-banner">
-    <div class="sb-label">Monthly salary — ${MONTHS[bThisMonth()]} ${bThisYear()}</div>
-    <div class="sb-amount">${bFmt(b.salary)}</div>
-    <div class="sb-sub">Pay day: ${b.payday}${ordinal(b.payday)} of each month</div>
+    <div class="sb-label">Combined monthly income — ${MONTHS[bThisMonth()]} ${bThisYear()}</div>
+    <div class="sb-amount">${bFmt(salary)}</div>
+    <div class="sb-sub">${incomes.length} income source${incomes.length!==1?'s':''} · Pay day${paydays.length!==1?'s':''}: ${paydays.map(d=>d+ordinal(d)).join(', ')}</div>
   </div>`;
+
+  if(incomes.length>1){
+    html+=`<div class="card"><div class="card-label">Income breakdown</div>`;
+    incomes.forEach(inc=>{
+      html+=`<div class="li-meta" style="display:flex;justify-content:space-between;padding:4px 0;">
+        <span>${esc(inc.label||'Income')} — paid on the ${inc.payday}${ordinal(inc.payday)}</span>
+        <span style="font-weight:700;color:var(--p);">${bFmt(inc.amount)}</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
 
   html+=`<div class="summary-grid">
     <div class="summary-box red"><div class="sb-lbl">Total bills</div><div class="sb-val">${bFmt(totalExp)}</div></div>
@@ -929,7 +1026,7 @@ function renderBudgetOverview(){
   html+=`<div class="card">
     <div class="card-label">Bills paid this month</div>
     <div class="prog-bg"><div class="prog-fill ${pctClass}" style="width:${pct}%"></div></div>
-    <div class="li-meta" style="margin-top:6px;">${bFmt(totalExp)} of ${bFmt(b.salary)} salary${pct>90?' — warning: bills exceed 90% of salary!':''}</div>
+    <div class="li-meta" style="margin-top:6px;">${bFmt(totalExp)} of ${bFmt(salary)} combined income${pct>90?' — warning: bills exceed 90% of income!':''}</div>
   </div>`;
 
   if(!hasExp){
@@ -943,7 +1040,7 @@ function renderBudgetOverview(){
       html+=`<div class="result-banner ${pos?'positive':'negative'}">
         <div class="rb-label">${pos?'You will have left over':'You are overspending by'}</div>
         <div class="rb-amount">${bFmt(Math.abs(gen.leftover))}</div>
-        <div class="rb-sub">Salary ${bFmt(gen.salary)} − Bills ${bFmt(gen.totalExp)}${gen.full?' − Groceries '+bFmt(gen.totalGroc):''}</div>
+        <div class="rb-sub">Income ${bFmt(gen.salary)} − Bills ${bFmt(gen.totalExp)}${gen.full?' − Groceries '+bFmt(gen.totalGroc):''}</div>
         <div class="rb-tag">${gen.full?'Full report — bills + groceries':'Partial report — bills only'}</div>
       </div>`;
     }
@@ -972,7 +1069,7 @@ function expRow(e,ticked){
 
 function renderBudgetExpenses(){
   const b=S.budget;
-  if(!b.salary)return gateCard('Add your salary first','You need to add your monthly salary in Settings before you can add monthly bills.');
+  if(!totalSalary())return gateCard('Add an income source first','You need to add at least one income source in Settings before you can add monthly bills.');
   const mk=bThisMonthKey();
   const ticked=getTicked(mk);
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
@@ -1012,7 +1109,7 @@ function renderBudgetExpenses(){
 
 function renderBudgetGrocery(){
   const b=S.budget;
-  if(!b.salary)return gateCard('Add your salary first','You need to add your monthly salary in Settings before you can add grocery items.');
+  if(!totalSalary())return gateCard('Add an income source first','You need to add at least one income source in Settings before you can add grocery items.');
   const all=S.items.grocery||[];
   const filter=b.grocFilter||'All';
   const filtered=filter==='All'?all:all.filter(g=>(g.category||'Other')===filter);
@@ -1065,7 +1162,7 @@ function grocRowB(g){
 
 function renderBudgetCalendar(){
   const b=S.budget;
-  if(!b.salary)return gateCard('Add your salary first','Add your salary and pay day in Settings to see your bill calendar.');
+  if(!totalSalary())return gateCard('Add an income source first','Add at least one income source and its pay day in Settings to see your pay/bill calendar.');
   const{year,month}=b.calMonth;
   const mk=bMonthKey(year,month);
   const ticked=getTicked(mk);
@@ -1076,6 +1173,7 @@ function renderBudgetCalendar(){
   const daysInPrev=new Date(year,month,0).getDate();
   const dueDays={};
   b.expenses.forEach(e=>{if(e.dueDay)dueDays[e.dueDay]=true;});
+  const paydays=paydaySet();
 
   let html=`<div class="card">
     <div class="cal-header">
@@ -1088,7 +1186,7 @@ function renderBudgetCalendar(){
   for(let i=0;i<firstDay;i++)html+=`<div class="cal-day other-month">${daysInPrev-firstDay+i+1}</div>`;
   for(let d=1;d<=daysInMonth;d++){
     const isToday=isThisMonth&&d===now.getDate();
-    const isPayday=d===b.payday;
+    const isPayday=paydays.has(d);
     const hasExp=!!dueDays[d];
     let cls='cal-day';
     if(isToday)cls+=' today';
@@ -1128,18 +1226,30 @@ function renderBudgetCalendar(){
 function renderBudgetSettings(){
   const b=S.budget;
   const CURR=['R','$','£','€','₦','KSh','¥','₹'];
+  const incomes=b.incomes||[];
   return`
   <div class="card">
-    <div class="card-label">Salary &amp; pay day</div>
-    <div class="fg"><label>Monthly salary <span class="req">*</span></label>
-      <input type="number" id="sSalary" min="0" step="0.01" value="${b.salary||''}" placeholder="e.g. 15000">
-      <span class="err-msg" id="sSalaryErr">Please enter your salary.</span></div>
-    <div class="frow">
-      <div class="fg"><label>Pay day (day of month)</label>
-        <input type="number" id="sPayday" min="1" max="31" value="${b.payday||25}" placeholder="e.g. 25"></div>
-      <div class="fg"><label>Currency</label>
-        <select id="sCurrency">${CURR.map(c=>`<option value="${c}" ${c===S.currency?'selected':''}>${c}</option>`).join('')}</select></div>
-    </div>
+    <div class="card-label">Income sources</div>
+    <div class="li-meta" style="margin-bottom:10px;">Add every salary or income you receive, even if they land on different days — they'll all be combined into one total used for your reports.</div>
+    ${incomes.length?incomes.map(inc=>`
+      <div class="list-item" data-incid="${inc.id}">
+        <div class="li-body">
+          <div class="li-title">${esc(inc.label||'Income')}</div>
+          <div class="li-meta">Paid on the ${inc.payday}${ordinal(inc.payday)} of each month</div>
+        </div>
+        <div class="li-amount">${bFmt(inc.amount)}</div>
+        <div class="li-actions">
+          <button class="ab" data-act="editInc">Edit</button>
+          <button class="ab" data-act="delInc">✕</button>
+        </div>
+      </div>`).join(''):'<div class="empty">No income sources yet. Add your first one below.</div>'}
+    ${incomes.length?`<div class="total-row"><span class="total-lbl">Combined total</span><span class="total-val">${bFmt(totalSalary())}</span></div>`:''}
+    <button class="btn primary" id="addIncomeBtn" style="margin-top:12px;">+ Add income source</button>
+  </div>
+  <div class="card">
+    <div class="card-label">Currency</div>
+    <div class="fg"><label>Currency</label>
+      <select id="sCurrency">${CURR.map(c=>`<option value="${c}" ${c===S.currency?'selected':''}>${c}</option>`).join('')}</select></div>
     <button class="btn primary" id="saveBudgetSettings">Save</button>
   </div>
   <div class="card">
@@ -1148,11 +1258,11 @@ function renderBudgetSettings(){
       <span>Remind me from pay day at 8pm<br>until all bills are ticked as paid</span>
       <button class="sw ${b.remindersOn?'on':''}" id="budgetNotifSw"></button>
     </div>
-    <div class="li-meta">Reminders fire daily at 8pm from your pay day until every bill is ticked for that month. They restart automatically each month.</div>
+    <div class="li-meta">Reminders fire daily at 8pm from your earliest pay day until every bill is ticked for that month. They restart automatically each month.</div>
   </div>
   <div class="card">
     <div class="card-label">Data</div>
-    <button class="btn secondary" id="exportBudgetBtn" style="margin-bottom:10px;">Export budget as JSON</button>
+    <button class="btn secondary" id="downloadOverviewBtn" style="margin-bottom:10px;">Download this month's overview</button>
     <button class="btn danger" id="resetBudgetBtn">Reset budget data</button>
   </div>`;
 }
@@ -1160,13 +1270,106 @@ function renderBudgetSettings(){
 function generateBudgetReport(){
   const b=S.budget;
   const mk=bThisMonthKey();
+  const salary=totalSalary();
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
   const hasGroc=(S.items.grocery||[]).length>0;
   const totalGroc=hasGroc?grocTotalAll():0;
-  const leftover=(b.salary||0)-totalExp-totalGroc;
+  const leftover=salary-totalExp-totalGroc;
   if(!b.generated)b.generated={};
-  b.generated[mk]={salary:b.salary,totalExp,totalGroc,leftover,full:hasGroc,date:new Date().toISOString()};
+  b.generated[mk]={salary,totalExp,totalGroc,leftover,full:hasGroc,date:new Date().toISOString()};
   save();render();
+}
+
+/* ==================== MONTH OVERVIEW DOWNLOAD ==================== */
+function buildMonthOverviewHTML(){
+  const b=S.budget;
+  const mk=bThisMonthKey();
+  const ticked=getTicked(mk);
+  const incomes=b.incomes||[];
+  const salary=totalSalary();
+  const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
+  const paidExp=b.expenses.filter(e=>ticked[e.id]).reduce((s,e)=>s+(e.amount||0),0);
+  const groc=S.items.grocery||[];
+  const totalGroc=grocTotalAll();
+  const gen=b.generated&&b.generated[mk];
+  const monthLabel=MONTHS[bThisMonth()]+' '+bThisYear();
+  const genDate=new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
+
+  const incomeRows=incomes.length?incomes.map(i=>
+    `<tr><td>${esc(i.label||'Income')}</td><td>${i.payday}${ordinal(i.payday)}</td><td class="amt">${bFmt(i.amount)}</td></tr>`
+  ).join(''):'<tr><td colspan="3" class="empty">No income sources added.</td></tr>';
+
+  const expRows=b.expenses.length?b.expenses.map(e=>
+    `<tr><td>${esc(e.name)}</td><td>${esc(e.category||'Other')}</td><td>${e.dueDay?e.dueDay+ordinal(e.dueDay):'—'}</td><td>${ticked[e.id]?'Paid':'Unpaid'}</td><td class="amt">${bFmt(e.amount)}</td></tr>`
+  ).join(''):'<tr><td colspan="5" class="empty">No bills added.</td></tr>';
+
+  const grocByCat={};
+  groc.forEach(g=>{const c=g.category||'Other';(grocByCat[c]=grocByCat[c]||[]).push(g);});
+  const grocRows=groc.length?Object.entries(grocByCat).map(([cat,items])=>
+    `<tr><td colspan="4" class="cat-head">${esc(cat)}</td></tr>`+
+    items.map(g=>`<tr><td>${esc(g.name)}</td><td>${g.qty}</td><td>${bFmt(g.price||0)}</td><td class="amt">${bFmt((g.qty||0)*(g.price||0))}</td></tr>`).join('')
+  ).join(''):'<tr><td colspan="4" class="empty">No grocery items added.</td></tr>';
+
+  const summarySection=gen?`
+    <div class="summary ${gen.leftover>=0?'pos':'neg'}">
+      <div class="summary-label">${gen.leftover>=0?'Left over this month':'Overspending this month'}</div>
+      <div class="summary-amt">${bFmt(Math.abs(gen.leftover))}</div>
+      <div class="summary-sub">Income ${bFmt(gen.salary)} − Bills ${bFmt(gen.totalExp)}${gen.full?' − Groceries '+bFmt(gen.totalGroc):''}</div>
+      <div class="summary-tag">${gen.full?'Full report — bills + groceries':'Partial report — bills only'}</div>
+    </div>`:`
+    <div class="summary neutral">
+      <div class="summary-label">No report generated yet this month</div>
+      <div class="summary-sub">Open the Overview tab and tap "Generate Monthly Report" to see your leftover/overspend figure here.</div>
+    </div>`;
+
+  return`<!doctype html>
+<html><head><meta charset="utf-8"><title>Budget overview — ${esc(monthLabel)}</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f5ee;color:#2f2a1f;margin:0;padding:32px 20px;}
+  .sheet{max-width:640px;margin:0 auto;background:#fff;border-radius:14px;padding:32px;box-shadow:0 2px 24px rgba(74,124,89,0.12);}
+  h1{font-size:22px;margin:0 0 2px;color:#3d6749;}
+  .sub{font-size:13px;color:#6b6152;margin-bottom:24px;}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:#a1662f;border-bottom:2px solid #ede6d6;padding-bottom:6px;margin:28px 0 10px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#a89c86;padding:6px 8px;border-bottom:2px solid #4a7c59;}
+  td{padding:8px;border-bottom:1px solid #ede6d6;}
+  td.amt,th.amt{text-align:right;}
+  td.empty{color:#a89c86;font-style:italic;}
+  td.cat-head{font-weight:700;color:#a1662f;background:#f7f5ee;}
+  .totals-row td{font-weight:800;border-top:2px solid #4a7c59;border-bottom:none;}
+  .summary{border-radius:10px;padding:18px;margin-top:24px;text-align:center;}
+  .summary.pos{background:#e4f2e8;color:#3d6749;}
+  .summary.neg{background:#fbe9e6;color:#c0392b;}
+  .summary.neutral{background:#f7f5ee;color:#6b6152;}
+  .summary-label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+  .summary-amt{font-size:28px;font-weight:800;margin:4px 0;}
+  .summary-sub{font-size:12px;opacity:.85;}
+  .summary-tag{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;background:rgba(0,0,0,.08);padding:2px 10px;border-radius:99px;margin-top:8px;}
+  .foot{margin-top:28px;font-size:11px;color:#a89c86;text-align:center;}
+  @media print{body{background:#fff;padding:0;}.sheet{box-shadow:none;}}
+</style></head>
+<body>
+  <div class="sheet">
+    <h1>${esc(S.name)}'s Budget Overview</h1>
+    <div class="sub">${esc(monthLabel)} · generated ${genDate}</div>
+
+    <h2>Income (combined: ${bFmt(salary)})</h2>
+    <table><thead><tr><th>Source</th><th>Pay day</th><th class="amt">Amount</th></tr></thead>
+    <tbody>${incomeRows}</tbody></table>
+
+    <h2>Bills (total: ${bFmt(totalExp)}, paid: ${bFmt(paidExp)})</h2>
+    <table><thead><tr><th>Bill</th><th>Category</th><th>Due</th><th>Status</th><th class="amt">Amount</th></tr></thead>
+    <tbody>${expRows}</tbody></table>
+
+    <h2>Groceries (total: ${bFmt(totalGroc)})</h2>
+    <table><thead><tr><th>Item</th><th>Qty</th><th>Unit price</th><th class="amt">Subtotal</th></tr></thead>
+    <tbody>${grocRows}</tbody></table>
+
+    ${summarySection}
+
+    <div class="foot">Downloaded from ${esc(S.name)}'s Daily Ledger</div>
+  </div>
+</body></html>`;
 }
 
 /* ==================== FUTURE PLANS ==================== */
@@ -1228,8 +1431,8 @@ function goalCard(it,catId,isHist){
 function renderChecklist(catId){
   const cat=S.cats.find(c=>c.id===catId);
   const all=S.items[catId]||[];
-  const active=all.filter(i=>classify(i)==='active').sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  const hist=all.filter(i=>classify(i)!=='active');
+  const active=all.filter(i=>classify(i)==='active').sort((a,b)=>(a.startDate||'').localeCompare(b.startDate||''));
+  const hist=all.filter(i=>classify(i)!=='active').sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
 
   let html=`<div class="card">
     <div class="card-label">Add to ${esc(cat?.name||'list')}</div>
@@ -1240,16 +1443,29 @@ function renderChecklist(catId){
     </div>
     <div class="frow">
       <div class="fg">
-        <label>Date <span class="req">*</span></label>
-        <input type="date" id="clDate" min="${todayStr()}">
-        <span class="err-msg" id="clDateErr">Please select a date.</span>
+        <label>Start date <span class="req">*</span></label>
+        <input type="date" id="clStartDate" min="${todayStr()}">
+        <span class="err-msg" id="clStartDateErr">Please select a start date.</span>
       </div>
       <div class="fg">
-        <label>Time <span class="req">*</span></label>
-        <input type="time" id="clTime">
-        <span class="err-msg" id="clTimeErr">Please select a time.</span>
+        <label>Start time <span class="req">*</span></label>
+        <input type="time" id="clStartTime">
+        <span class="err-msg" id="clStartTimeErr">Please select a start time.</span>
       </div>
     </div>
+    <div class="frow">
+      <div class="fg">
+        <label>End date <span class="req">*</span></label>
+        <input type="date" id="clEndDate" min="${todayStr()}">
+        <span class="err-msg" id="clEndDateErr">Please select an end date.</span>
+      </div>
+      <div class="fg">
+        <label>End time <span class="req">*</span></label>
+        <input type="time" id="clEndTime">
+        <span class="err-msg" id="clEndTimeErr">Please select an end time.</span>
+      </div>
+    </div>
+    <span class="err-msg" id="clRangeErr">End must be on or after the start.</span>
     <button class="btn primary" id="clAddBtn" data-cat="${catId}">Add</button>
   </div>
   <div class="card">
@@ -1284,16 +1500,29 @@ function renderSticky(catId){
     </div>
     <div class="frow">
       <div class="fg">
-        <label>Due date <span class="req">*</span></label>
-        <input type="date" id="stDate" min="${todayStr()}">
-        <span class="err-msg" id="stDateErr">Please select a date.</span>
+        <label>Start date <span class="req">*</span></label>
+        <input type="date" id="stStartDate" min="${todayStr()}">
+        <span class="err-msg" id="stStartDateErr">Please select a start date.</span>
       </div>
       <div class="fg">
-        <label>Due time <span class="req">*</span></label>
-        <input type="time" id="stTime">
-        <span class="err-msg" id="stTimeErr">Please select a time.</span>
+        <label>Start time <span class="req">*</span></label>
+        <input type="time" id="stStartTime">
+        <span class="err-msg" id="stStartTimeErr">Please select a start time.</span>
       </div>
     </div>
+    <div class="frow">
+      <div class="fg">
+        <label>End date <span class="req">*</span></label>
+        <input type="date" id="stEndDate" min="${todayStr()}">
+        <span class="err-msg" id="stEndDateErr">Please select an end date.</span>
+      </div>
+      <div class="fg">
+        <label>End time <span class="req">*</span></label>
+        <input type="time" id="stEndTime">
+        <span class="err-msg" id="stEndTimeErr">Please select an end time.</span>
+      </div>
+    </div>
+    <span class="err-msg" id="stRangeErr">End must be on or after the start.</span>
     <div class="fg">
       <label>Details <span class="req">*</span></label>
       <textarea id="stDesc" rows="3" placeholder="Write your note..."></textarea>
@@ -1325,7 +1554,7 @@ function stickyNote(it,catId,isHist){
       </div>
     </div>
     <div class="sticky-desc">${esc(it.desc||'')}</div>
-    <div class="sticky-date ${late?'late':''}">${it.date||'No date'}${it.time?' at '+it.time:''}</div>
+    <div class="sticky-date ${late?'late':''}">${fmtRange(it)}</div>
     <div class="sticky-foot">
       <div class="colors">${dots}</div>
     </div>
@@ -1388,16 +1617,19 @@ function attachEvents(){
   /* Add To-Do */
   const fAddTodo=document.getElementById('fAddTodo');
   if(fAddTodo)fAddTodo.onclick=()=>{
-    const t=v('fTitle'),d=v('fDate'),tm=v('fTime'),pri=v('fPri');
+    const t=v('fTitle'),sd=v('fStartDate'),stm=v('fStartTime'),ed=v('fEndDate'),etm=v('fEndTime'),pri=v('fPri');
     let ok=true;
     if(!t){showE('fTitleErr','fTitle');ok=false;}else hideE('fTitleErr','fTitle');
-    if(!d){showE('fDateErr','fDate');ok=false;}else hideE('fDateErr','fDate');
-    if(!tm){showE('fTimeErr','fTime');ok=false;}else hideE('fTimeErr','fTime');
+    if(!sd){showE('fStartDateErr','fStartDate');ok=false;}else hideE('fStartDateErr','fStartDate');
+    if(!stm){showE('fStartTimeErr','fStartTime');ok=false;}else hideE('fStartTimeErr','fStartTime');
+    if(!ed){showE('fEndDateErr','fEndDate');ok=false;}else hideE('fEndDateErr','fEndDate');
+    if(!etm){showE('fEndTimeErr','fEndTime');ok=false;}else hideE('fEndTimeErr','fEndTime');
     if(!pri){showE('fPriErr','fPri');ok=false;}else hideE('fPriErr','fPri');
     if(!ok)return;
-    if(isPast(d,tm)){alert('That date and time is in the past. Please choose a future date and time.');return;}
+    if(!rangeOk(sd,stm,ed,etm)){showE('fRangeErr','fEndDate');return;}else hideE('fRangeErr','fEndDate');
+    if(isPast(sd,stm)){alert('That start date and time is in the past. Please choose a future start.');return;}
     const listId=fAddTodo.getAttribute('data-list');
-    S.items[listId].push({id:uid(),title:t,desc:v('fDesc'),date:d,time:tm,priority:pri,done:false,fav:false});
+    S.items[listId].push({id:uid(),title:t,desc:v('fDesc'),startDate:sd,startTime:stm,endDate:ed,endTime:etm,priority:pri,done:false,fav:false});
     save();render();
   };
 
@@ -1434,32 +1666,38 @@ function attachEvents(){
   /* Add Checklist */
   const clAddBtn=document.getElementById('clAddBtn');
   if(clAddBtn)clAddBtn.onclick=()=>{
-    const t=v('clItem'),d=v('clDate'),tm=v('clTime');
+    const t=v('clItem'),sd=v('clStartDate'),stm=v('clStartTime'),ed=v('clEndDate'),etm=v('clEndTime');
     let ok=true;
     if(!t){showE('clItemErr','clItem');ok=false;}else hideE('clItemErr','clItem');
-    if(!d){showE('clDateErr','clDate');ok=false;}else hideE('clDateErr','clDate');
-    if(!tm){showE('clTimeErr','clTime');ok=false;}else hideE('clTimeErr','clTime');
+    if(!sd){showE('clStartDateErr','clStartDate');ok=false;}else hideE('clStartDateErr','clStartDate');
+    if(!stm){showE('clStartTimeErr','clStartTime');ok=false;}else hideE('clStartTimeErr','clStartTime');
+    if(!ed){showE('clEndDateErr','clEndDate');ok=false;}else hideE('clEndDateErr','clEndDate');
+    if(!etm){showE('clEndTimeErr','clEndTime');ok=false;}else hideE('clEndTimeErr','clEndTime');
     if(!ok)return;
-    if(isPast(d,tm)){alert('That date and time is in the past.');return;}
+    if(!rangeOk(sd,stm,ed,etm)){showE('clRangeErr','clEndDate');return;}else hideE('clRangeErr','clEndDate');
+    if(isPast(sd,stm)){alert('That start date and time is in the past.');return;}
     const catId=clAddBtn.getAttribute('data-cat');
-    S.items[catId].push({id:uid(),title:t,date:d,time:tm,done:false,fav:false});
+    S.items[catId].push({id:uid(),title:t,startDate:sd,startTime:stm,endDate:ed,endTime:etm,done:false,fav:false});
     save();render();
   };
 
   /* Add Sticky */
   const stAddBtn=document.getElementById('stAddBtn');
   if(stAddBtn)stAddBtn.onclick=()=>{
-    const t=v('stTitle'),pri=v('stPri'),d=v('stDate'),tm=v('stTime'),desc=v('stDesc');
+    const t=v('stTitle'),pri=v('stPri'),sd=v('stStartDate'),stm=v('stStartTime'),ed=v('stEndDate'),etm=v('stEndTime'),desc=v('stDesc');
     let ok=true;
     if(!t){showE('stTitleErr','stTitle');ok=false;}else hideE('stTitleErr','stTitle');
     if(!pri){showE('stPriErr','stPri');ok=false;}else hideE('stPriErr','stPri');
-    if(!d){showE('stDateErr','stDate');ok=false;}else hideE('stDateErr','stDate');
-    if(!tm){showE('stTimeErr','stTime');ok=false;}else hideE('stTimeErr','stTime');
+    if(!sd){showE('stStartDateErr','stStartDate');ok=false;}else hideE('stStartDateErr','stStartDate');
+    if(!stm){showE('stStartTimeErr','stStartTime');ok=false;}else hideE('stStartTimeErr','stStartTime');
+    if(!ed){showE('stEndDateErr','stEndDate');ok=false;}else hideE('stEndDateErr','stEndDate');
+    if(!etm){showE('stEndTimeErr','stEndTime');ok=false;}else hideE('stEndTimeErr','stEndTime');
     if(!desc){showE('stDescErr','stDesc');ok=false;}else hideE('stDescErr','stDesc');
     if(!ok)return;
-    if(isPast(d,tm)){alert('That date and time is in the past.');return;}
+    if(!rangeOk(sd,stm,ed,etm)){showE('stRangeErr','stEndDate');return;}else hideE('stRangeErr','stEndDate');
+    if(isPast(sd,stm)){alert('That start date and time is in the past.');return;}
     const catId=stAddBtn.getAttribute('data-cat');
-    S.items[catId].push({id:uid(),title:t,priority:pri,date:d,time:tm,desc,done:false,fav:false,color:SCOLORS[0]});
+    S.items[catId].push({id:uid(),title:t,priority:pri,startDate:sd,startTime:stm,endDate:ed,endTime:etm,desc,done:false,fav:false,color:SCOLORS[0]});
     save();render();
   };
 
@@ -1503,34 +1741,10 @@ function attachEvents(){
     openDel('cat',cid,cat?cat.name:'this category',null);
   });
 
-  /* Item events via delegation */
-  pg.addEventListener('change',e=>{
-    const el=e.target;const act=el.getAttribute('data-act');
-    const row=el.closest('[data-id]');if(!row)return;
-    const id=row.getAttribute('data-id');const listId=row.getAttribute('data-list');
-    const it=(S.items[listId]||[]).find(i=>i.id===id);if(!it)return;
-    if(act==='toggle'){it.done=el.checked;save();render();}
-    if(act==='progress'){
-      it.progress=parseInt(el.value);
-      row.querySelector('.prog-pct span:last-child').textContent=it.progress+'%';
-      row.querySelector('.prog-fill').style.width=it.progress+'%';
-      save();
-    }
-  });
-
-  pg.addEventListener('click',e=>{
-    const el=e.target.closest('[data-act]');if(!el)return;
-    const act=el.getAttribute('data-act');
-    if(['hist','delcat'].includes(act))return;
-    const row=el.closest('[data-id]');if(!row)return;
-    const id=row.getAttribute('data-id');const listId=row.getAttribute('data-list');
-    const it=(S.items[listId]||[]).find(i=>i.id===id);if(!it)return;
-    if(act==='toggle'){it.done=!it.done;save();render();}
-    if(act==='fav'){it.fav=!it.fav;save();render();}
-    if(act==='color'){it.color=el.getAttribute('data-color');save();render();}
-    if(act==='edit')openItemEdit(id,listId);
-    if(act==='del')openDel('item',id,it.title||it.name||'this item',listId);
-  });
+  /* Item events via delegation are registered once, outside attachEvents() —
+     see setupItemDelegation() below. Re-registering with addEventListener on
+     every render would stack duplicate listeners on the persistent #page
+     container forever. */
 
   /* ===== BUDGET EVENTS ===== */
   /* Gate button -> jump to budget settings */
@@ -1563,17 +1777,22 @@ function attachEvents(){
     S.budget.grocFilter=b.getAttribute('data-groc-filter');save();render();
   });
 
-  /* Budget settings save */
+  /* Budget settings save (currency only — incomes are managed via their own modal) */
   const saveBudgetBtn=document.getElementById('saveBudgetSettings');
   if(saveBudgetBtn)saveBudgetBtn.onclick=()=>{
-    const sal=parseFloat(v('sSalary'));
-    if(!sal||sal<=0||isNaN(sal)){showE('sSalaryErr','sSalary');return;}
-    hideE('sSalaryErr','sSalary');
-    S.budget.salary=sal;
-    S.budget.payday=parseInt(v('sPayday'))||25;
     S.currency=document.getElementById('sCurrency')?.value||S.currency;
-    save();alert('Budget settings saved!');activeBudgetSub='overview';render();
+    save();alert('Currency saved!');render();
   };
+
+  /* Income sources: add / edit / delete */
+  const addIncomeBtn=document.getElementById('addIncomeBtn');
+  if(addIncomeBtn)addIncomeBtn.onclick=()=>openIncomeModal(null);
+  pg.querySelectorAll('[data-act="editInc"]').forEach(b=>b.onclick=e=>{
+    const row=e.target.closest('[data-incid]');if(row)openIncomeModal(row.getAttribute('data-incid'));
+  });
+  pg.querySelectorAll('[data-act="delInc"]').forEach(b=>b.onclick=e=>{
+    const row=e.target.closest('[data-incid]');if(row)openIncomeDelModal(row.getAttribute('data-incid'));
+  });
 
   /* Budget reminders switch */
   const budgetNotifSw=document.getElementById('budgetNotifSw');
@@ -1585,17 +1804,19 @@ function attachEvents(){
     save();render();
   };
 
-  /* Budget export / reset */
-  const exportBudgetBtn=document.getElementById('exportBudgetBtn');
-  if(exportBudgetBtn)exportBudgetBtn.onclick=()=>{
-    const data={budget:S.budget,grocery:S.items.grocery||[]};
-    const bl=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='budget-'+bThisMonthKey()+'.json';a.click();
+  /* Budget: download this month's overview */
+  const downloadOverviewBtn=document.getElementById('downloadOverviewBtn');
+  if(downloadOverviewBtn)downloadOverviewBtn.onclick=()=>{
+    const bl=new Blob([buildMonthOverviewHTML()],{type:'text/html'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(bl);
+    a.download='Budget overview - '+MONTHS[bThisMonth()]+' '+bThisYear()+'.html';
+    a.click();
   };
   const resetBudgetBtn=document.getElementById('resetBudgetBtn');
   if(resetBudgetBtn)resetBudgetBtn.onclick=()=>{
-    if(confirm('This will delete all your budget bills, grocery items and settings. Are you sure?')){
-      S.budget={salary:0,payday:25,expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:{year:new Date().getFullYear(),month:new Date().getMonth()},grocFilter:'All'};
+    if(confirm('This will delete all your income sources, budget bills, grocery items and settings. Are you sure?')){
+      S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:{year:new Date().getFullYear(),month:new Date().getMonth()},grocFilter:'All'};
       S.items.grocery=[];
       save();render();
     }
@@ -1620,6 +1841,47 @@ function attachEvents(){
     const row=e.target.closest('[data-eid]');if(row)openExpDelModal(row.getAttribute('data-eid'));
   });
 }
+
+/* Registered ONCE at load — deliberately NOT inside attachEvents(), which runs
+   on every render(). Previously these two delegated listeners were added with
+   addEventListener() inside attachEvents(), so every single render (every
+   tick, edit, add, tab switch...) stacked ANOTHER duplicate listener onto the
+   persistent #page container without ever removing the old ones. After the
+   app had been used for a while, a single checkbox tap could end up firing
+   the toggle handler many times in one click — which is exactly what made
+   ticking/unticking tasks (including in History) behave unreliably or seem
+   to silently do nothing. #page itself is never replaced (only its
+   innerHTML), so registering delegated listeners on it just once, here,
+   fixes this permanently. */
+(function setupItemDelegation(){
+  const pg=document.getElementById('page');
+  pg.addEventListener('change',e=>{
+    const el=e.target;const act=el.getAttribute('data-act');
+    const row=el.closest('[data-id]');if(!row)return;
+    const id=row.getAttribute('data-id');const listId=row.getAttribute('data-list');
+    const it=(S.items[listId]||[]).find(i=>i.id===id);if(!it)return;
+    if(act==='toggle'){it.done=el.checked;save();render();}
+    if(act==='progress'){
+      it.progress=parseInt(el.value);
+      row.querySelector('.prog-pct span:last-child').textContent=it.progress+'%';
+      row.querySelector('.prog-fill').style.width=it.progress+'%';
+      save();
+    }
+  });
+  pg.addEventListener('click',e=>{
+    const el=e.target.closest('[data-act]');if(!el)return;
+    const act=el.getAttribute('data-act');
+    if(['hist','delcat'].includes(act))return;
+    const row=el.closest('[data-id]');if(!row)return;
+    const id=row.getAttribute('data-id');const listId=row.getAttribute('data-list');
+    const it=(S.items[listId]||[]).find(i=>i.id===id);if(!it)return;
+    if(act==='toggle'){it.done=!it.done;save();render();}
+    if(act==='fav'){it.fav=!it.fav;save();render();}
+    if(act==='color'){it.color=el.getAttribute('data-color');save();render();}
+    if(act==='edit')openItemEdit(id,listId);
+    if(act==='del')openDel('item',id,it.title||it.name||'this item',listId);
+  });
+})();
 
 /* ==================== EXPENSE MODAL ==================== */
 function openExpModal(id){
@@ -1656,11 +1918,45 @@ function openExpDelModal(id){
   document.getElementById('delMsg').textContent='"'+(exp?exp.name:'this expense')+'" will be removed.';
   document.getElementById('delModal').classList.add('show');
 }
-['expModal'].forEach(mid=>{
+['expModal','incomeModal'].forEach(mid=>{
   document.getElementById(mid).addEventListener('click',e=>{
     if(e.target===document.getElementById(mid))document.getElementById(mid).classList.remove('show');
   });
 });
+
+function openIncomeModal(id){
+  editingIncId=id||null;
+  const inc=id?(S.budget.incomes||[]).find(i=>i.id===id):null;
+  document.getElementById('incomeModalTitle').textContent=id?'Edit income source':'Add income source';
+  document.getElementById('incLabel').value=inc?(inc.label||''):'';
+  document.getElementById('incAmount').value=inc?inc.amount:'';
+  document.getElementById('incPayday').value=inc?inc.payday:'';
+  hideE('incAmountErr','incAmount');hideE('incPaydayErr','incPayday');
+  document.getElementById('incomeModal').classList.add('show');
+}
+document.getElementById('incomeCancel').onclick=()=>{editingIncId=null;document.getElementById('incomeModal').classList.remove('show');};
+document.getElementById('incomeSave').onclick=()=>{
+  const label=v('incLabel'),amount=parseFloat(v('incAmount')),payday=parseInt(v('incPayday'));
+  let ok=true;
+  if(!amount||amount<=0||isNaN(amount)){showE('incAmountErr','incAmount');ok=false;}else hideE('incAmountErr','incAmount');
+  if(!payday||payday<1||payday>31||isNaN(payday)){showE('incPaydayErr','incPayday');ok=false;}else hideE('incPaydayErr','incPayday');
+  if(!ok)return;
+  if(!S.budget.incomes)S.budget.incomes=[];
+  if(editingIncId){
+    const inc=S.budget.incomes.find(i=>i.id===editingIncId);
+    if(inc){inc.label=label;inc.amount=amount;inc.payday=payday;}
+  }else{
+    S.budget.incomes.push({id:uid(),label,amount,payday});
+  }
+  editingIncId=null;save();
+  document.getElementById('incomeModal').classList.remove('show');render();
+};
+function openIncomeDelModal(id){
+  const inc=(S.budget.incomes||[]).find(i=>i.id===id);
+  delType='income';delId=id;
+  document.getElementById('delMsg').textContent='"'+(inc?(inc.label||'This income source'):'This income source')+'" will be removed.';
+  document.getElementById('delModal').classList.add('show');
+}
 
 /* ==================== ITEM EDIT MODAL ==================== */
 function getItemType(listId){
@@ -1685,9 +1981,22 @@ function openItemEdit(id,listId){
         <span class="err-msg" id="eTErr">Required.</span></div>
       <div class="fg"><label>Description</label><textarea id="eDesc" rows="2">${esc(it.desc||'')}</textarea></div>
       <div class="frow">
-        <div class="fg"><label>Date</label><input type="date" id="eD" value="${it.date||''}"></div>
-        <div class="fg"><label>Time</label><input type="time" id="eTm" value="${it.time||''}"></div>
+        <div class="fg"><label>Start date <span class="req">*</span></label>
+          <input type="date" id="eStartDate" value="${it.startDate||it.date||''}">
+          <span class="err-msg" id="eStartDateErr">Required.</span></div>
+        <div class="fg"><label>Start time <span class="req">*</span></label>
+          <input type="time" id="eStartTime" value="${it.startTime||it.time||''}">
+          <span class="err-msg" id="eStartTimeErr">Required.</span></div>
       </div>
+      <div class="frow">
+        <div class="fg"><label>End date <span class="req">*</span></label>
+          <input type="date" id="eEndDate" value="${it.endDate||it.date||''}">
+          <span class="err-msg" id="eEndDateErr">Required.</span></div>
+        <div class="fg"><label>End time <span class="req">*</span></label>
+          <input type="time" id="eEndTime" value="${it.endTime||it.time||''}">
+          <span class="err-msg" id="eEndTimeErr">Required.</span></div>
+      </div>
+      <span class="err-msg" id="eRangeErr">End must be on or after the start.</span>
       ${type==='todo'?`<div class="fg"><label>Priority</label>
         <select id="ePri">
           <option value="high" ${it.priority==='high'?'selected':''}>High</option>
@@ -1731,9 +2040,14 @@ function openItemEdit(id,listId){
           <option value="low" ${it.priority==='low'?'selected':''}>Low</option>
         </select></div>
       <div class="frow">
-        <div class="fg"><label>Date</label><input type="date" id="eSD" value="${it.date||''}"></div>
-        <div class="fg"><label>Time</label><input type="time" id="eSTm" value="${it.time||''}"></div>
+        <div class="fg"><label>Start date</label><input type="date" id="eSStartDate" value="${it.startDate||it.date||''}"></div>
+        <div class="fg"><label>Start time</label><input type="time" id="eSStartTime" value="${it.startTime||it.time||''}"></div>
       </div>
+      <div class="frow">
+        <div class="fg"><label>End date</label><input type="date" id="eSEndDate" value="${it.endDate||it.date||''}"></div>
+        <div class="fg"><label>End time</label><input type="time" id="eSEndTime" value="${it.endTime||it.time||''}"></div>
+      </div>
+      <span class="err-msg" id="eSRangeErr">End must be on or after the start.</span>
       <div class="fg"><label>Details <span class="req">*</span></label>
         <textarea id="eSDesc" rows="3">${esc(it.desc||'')}</textarea>
         <span class="err-msg" id="eSDescErr">Required.</span></div>`;
@@ -1744,7 +2058,14 @@ function openItemEdit(id,listId){
     let ok=true;
     if(type==='todo'||type==='checklist'){
       const t=v('eT');if(!t){showE('eTErr','eT');ok=false;}else{hideE('eTErr','eT');it2.title=t;}
-      it2.desc=v('eDesc');it2.date=v('eD');it2.time=v('eTm');
+      const sd=v('eStartDate'),stm=v('eStartTime'),ed=v('eEndDate'),etm=v('eEndTime');
+      if(!sd){showE('eStartDateErr','eStartDate');ok=false;}else hideE('eStartDateErr','eStartDate');
+      if(!stm){showE('eStartTimeErr','eStartTime');ok=false;}else hideE('eStartTimeErr','eStartTime');
+      if(!ed){showE('eEndDateErr','eEndDate');ok=false;}else hideE('eEndDateErr','eEndDate');
+      if(!etm){showE('eEndTimeErr','eEndTime');ok=false;}else hideE('eEndTimeErr','eEndTime');
+      if(ok&&!rangeOk(sd,stm,ed,etm)){showE('eRangeErr','eEndDate');ok=false;}else hideE('eRangeErr','eEndDate');
+      it2.desc=v('eDesc');
+      if(ok){it2.startDate=sd;it2.startTime=stm;it2.endDate=ed;it2.endTime=etm;delete it2.date;delete it2.time;}
       if(type==='todo')it2.priority=v('ePri');
     }else if(type==='grocery'){
       const n=v('eN'),q=parseFloat(v('eQ')),p=parseFloat(v('eP'));
@@ -1761,7 +2082,10 @@ function openItemEdit(id,listId){
       const t=v('eST'),desc=v('eSDesc');
       if(!t){showE('eSTErr','eST');ok=false;}else{hideE('eSTErr','eST');it2.title=t;}
       if(!desc){showE('eSDescErr','eSDesc');ok=false;}else{hideE('eSDescErr','eSDesc');it2.desc=desc;}
-      it2.priority=v('eSPri');it2.date=v('eSD');it2.time=v('eSTm');
+      const sd=v('eSStartDate'),stm=v('eSStartTime'),ed=v('eSEndDate'),etm=v('eSEndTime');
+      if(ok&&!rangeOk(sd,stm,ed,etm)){showE('eSRangeErr','eSEndDate');ok=false;}else hideE('eSRangeErr','eSEndDate');
+      it2.priority=v('eSPri');
+      if(ok){it2.startDate=sd;it2.startTime=stm;it2.endDate=ed;it2.endTime=etm;delete it2.date;delete it2.time;}
     }
     if(!ok)return;
     save();document.getElementById('itemModal').classList.remove('show');editId=null;editList=null;render();
@@ -1780,6 +2104,7 @@ document.getElementById('delCancel').onclick=()=>{delId=null;delList=null;delTyp
 document.getElementById('delConfirm').onclick=()=>{
   if(delType==='item'&&delList)S.items[delList]=(S.items[delList]||[]).filter(i=>i.id!==delId);
   if(delType==='expense'){S.budget.expenses=S.budget.expenses.filter(e=>e.id!==delId);deletingExpId=null;}
+  if(delType==='income'){S.budget.incomes=(S.budget.incomes||[]).filter(i=>i.id!==delId);}
   if(delType==='cat'){
     S.cats=S.cats.filter(c=>c.id!==delId);
     delete S.items[delId];
