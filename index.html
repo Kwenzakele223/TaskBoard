@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Daily Ledger">
 <meta name="theme-color" content="#4a7c59">
 <title>The Daily Ledger</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{overflow-x:hidden;width:100%;}
 :root{
   --p:#4a7c59;--p2:#3d6749;--p3:#6b9b7a;--p4:#8fb89c;
   --acc:#a1662f;--acc2:#c17f42;
@@ -31,11 +32,17 @@ body.dark{
 .ob-box{background:var(--surface);border-radius:20px;padding:32px 26px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(0,0,0,0.35);}
 .ob-logo{font-size:26px;font-weight:800;color:var(--p);letter-spacing:-0.5px;margin-bottom:4px;}
 .ob-tagline{font-size:13px;color:var(--text2);margin-bottom:26px;line-height:1.5;}
+.profile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:14px;}
+.profile-tile{display:flex;flex-direction:column;align-items:center;gap:8px;background:transparent;border:none;font-family:inherit;cursor:pointer;padding:4px;}
+.profile-avatar{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p3));color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;}
+.profile-avatar.add{background:var(--bg2);color:var(--p);border:2px dashed var(--border2);font-size:26px;}
+.profile-name{font-size:12px;font-weight:600;color:var(--text);text-align:center;word-break:break-word;max-width:84px;}
+.profile-tile:hover .profile-avatar{transform:scale(1.05);}
 
 /* ===== TOP BAR ===== */
-.topbar{background:linear-gradient(135deg,var(--p),var(--p3));color:#fff;height:58px;display:flex;align-items:center;padding:0 18px;gap:10px;position:sticky;top:0;z-index:20;box-shadow:0 3px 12px rgba(45,27,105,0.3);}
-.topbar-logo{font-size:18px;font-weight:800;letter-spacing:-0.3px;flex:1;}
-.t-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .15s;}
+.topbar{background:linear-gradient(135deg,var(--p),var(--p3));color:#fff;height:58px;display:flex;align-items:center;padding:0 18px;padding-top:env(safe-area-inset-top);padding-left:max(18px,env(safe-area-inset-left));padding-right:max(18px,env(safe-area-inset-right));height:calc(58px + env(safe-area-inset-top));gap:10px;position:sticky;top:0;z-index:20;box-shadow:0 3px 12px rgba(45,27,105,0.3);}
+.topbar-logo{font-size:18px;font-weight:800;letter-spacing:-0.3px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.t-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .15s;flex-shrink:0;}
 .t-btn:active{background:rgba(255,255,255,0.28);}
 .t-btn.on{background:var(--ok);border-color:var(--ok);}
 
@@ -46,13 +53,14 @@ body.dark{
 .tab.active{color:var(--p);border-bottom-color:var(--p);font-weight:700;}
 
 /* ===== SUBTABS ===== */
-.subtab-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;padding:0 16px;gap:2px;display:none;}
+.subtab-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;padding:0 16px;gap:2px;display:none;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.subtab-bar::-webkit-scrollbar{display:none;}
 .subtab-bar.show{display:flex;}
-.stab{border:none;background:transparent;padding:10px 14px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap;}
+.stab{border:none;background:transparent;padding:10px 14px;font-size:13px;font-weight:500;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;white-space:nowrap;flex-shrink:0;}
 .stab.active{color:var(--p);border-bottom-color:var(--p);font-weight:700;}
 
 /* ===== CONTENT ===== */
-.content{padding:16px;max-width:720px;margin:0 auto;}
+.content{padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto;}
 
 /* ===== BANNERS ===== */
 .banner{border-radius:var(--r);padding:14px 16px;margin-bottom:14px;display:none;border-left:4px solid;}
@@ -64,15 +72,15 @@ body.dark .banner.due{background:#2a0a1a;color:#f87171;}
 body.dark .banner.pay{background:#2a1a00;color:#fbbf24;}
 
 /* ===== CARDS ===== */
-.card{background:var(--surface);border-radius:var(--r);padding:18px;margin-bottom:14px;box-shadow:var(--shadow);border:1px solid var(--border);}
+.card{background:var(--surface);border-radius:var(--r);padding:18px;margin-bottom:14px;box-shadow:var(--shadow);border:1px solid var(--border);overflow-x:auto;}
 .card-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:14px;}
 
 /* ===== FORMS ===== */
-.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;min-width:0;}
 .fg label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);}
 .fg label .req{color:var(--red);}
 .fg input,.fg select,.fg textarea{
-  width:100%;padding:13px 14px;border:2px solid var(--border);border-radius:10px;
+  width:100%;max-width:100%;min-width:0;box-sizing:border-box;padding:13px 14px;border:2px solid var(--border);border-radius:10px;
   font-size:16px;font-family:inherit;background:var(--surface);color:var(--text);
   -webkit-appearance:none;appearance:none;transition:border-color .15s;
 }
@@ -82,8 +90,50 @@ body.dark .banner.pay{background:#2a1a00;color:#fbbf24;}
 .err-msg{font-size:12px;color:var(--red);display:none;}
 .err-msg.show{display:block;}
 .frow{display:flex;gap:10px;}
-.frow .fg{flex:1;}
-@media(max-width:480px){.frow{flex-direction:column;}}
+.frow .fg{flex:1;min-width:0;}
+/* Start/End date+time pairs: always stay side-by-side as a pair, on every
+   screen size — grid (not flex) so both inputs share space evenly and can
+   shrink below their native intrinsic width without forcing the row (and
+   therefore the page) wider than the viewport. */
+.dt-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.dt-row .fg{min-width:0;}
+@media(max-width:480px){
+  .frow{flex-direction:column;}
+  .dt-row{grid-template-columns:1fr 1fr;gap:6px;} /* stays 2-up even on small phones — never collapses to 1 column */
+  .content{padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom));}
+  .card{padding:14px;}
+  .summary-grid{gap:6px;}
+  .summary-box{padding:10px 5px;}
+  .summary-box .sb-val{font-size:14px;}
+  .salary-banner{padding:16px;}
+  .salary-banner .sb-amount{font-size:24px;}
+  .ob-box{padding:26px 18px;}
+  .exp-table th,.exp-table td{padding:8px 5px;font-size:12px;}
+  .cal-grid{gap:2px;}
+  .cal-day{padding:7px 1px;font-size:12px;}
+  .cal-header{gap:6px;}
+  .cal-title{font-size:14px;}
+  .modal-box{padding:18px;}
+  .profile-grid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px;}
+  .profile-avatar{width:52px;height:52px;font-size:20px;}
+}
+@media(max-width:360px){
+  .topbar-logo{font-size:16px;}
+  .t-btn{padding:5px 9px;font-size:11px;}
+  .summary-box .sb-val{font-size:12.5px;}
+  .cal-day{padding:6px 1px;font-size:11px;}
+  .tab{padding:12px 14px;font-size:13px;}
+  .dt-row{gap:5px;}
+  .dt-row .fg input{padding:11px 6px;}
+  .dt-row .fg label{font-size:10px;letter-spacing:.2px;}
+}
+@media(min-width:900px){
+  .content{max-width:820px;}
+}
+@media(min-width:1200px){
+  .content{max-width:880px;}
+  .card{padding:22px;}
+}
 
 /* ===== BUTTONS ===== */
 .btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s;}
@@ -106,7 +156,7 @@ body.dark .banner.pay{background:#2a1a00;color:#fbbf24;}
 .li-desc{font-size:13px;color:var(--text2);margin-top:4px;line-height:1.5;}
 .li-amount{font-size:15px;font-weight:700;color:var(--ok);flex-shrink:0;}
 .li-actions{display:flex;gap:4px;flex-shrink:0;align-items:center;}
-.ab{background:transparent;border:none;cursor:pointer;padding:6px 8px;border-radius:7px;font-size:13px;font-weight:600;color:var(--text3);font-family:inherit;}
+.ab{background:transparent;border:none;cursor:pointer;padding:9px 10px;min-height:36px;border-radius:7px;font-size:13px;font-weight:600;color:var(--text3);font-family:inherit;}
 .ab:active{background:var(--bg2);}
 .fav-btn{font-size:18px;color:#ddd;}
 .fav-btn.on{color:#e53935;}
@@ -242,7 +292,7 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
 .gate-card p{font-size:14px;color:var(--text2);margin:10px 0 16px;line-height:1.6;}
 .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .cal-title{font-size:16px;font-weight:700;}
-.cal-nav{background:transparent;border:1.5px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;color:var(--text);font-family:inherit;}
+.cal-nav{background:transparent;border:1.5px solid var(--border);border-radius:8px;width:38px;height:38px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;color:var(--text);font-family:inherit;flex-shrink:0;}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
 .cal-day-name{text-align:center;font-size:10px;font-weight:700;color:var(--text3);padding:4px 0;text-transform:uppercase;}
 .cal-day{text-align:center;padding:8px 2px;border-radius:8px;font-size:13px;position:relative;color:var(--text);}
@@ -367,6 +417,15 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
       </div>
       <button class="btn primary" id="resetPinBtn">Save new PIN</button>
     </div>
+  </div>
+</div>
+
+<!-- PROFILE PICKER (shown when 2+ people share this device) -->
+<div class="ob" id="profilePicker" style="display:none;">
+  <div class="ob-box">
+    <div class="ob-logo">Who's using this?</div>
+    <div class="ob-tagline">Pick your name to continue, or add someone new. Everyone's data stays completely separate.</div>
+    <div class="profile-grid" id="profileList"></div>
   </div>
 </div>
 
@@ -503,7 +562,8 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
 /* ==================== STORAGE ==================== */
 const db={
   get:k=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}},
-  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},
+  remove:k=>{try{localStorage.removeItem(k);}catch(e){}}
 };
 
 /* ==================== CONSTANTS ==================== */
@@ -517,22 +577,27 @@ const EXP_CATS=['Housing','Transport','Utilities','Insurance','Medical','Educati
 const GROC_CATS=['Food','Toiletries','Detergents'];
 
 /* ==================== STATE ==================== */
-let S={
-  name:'',currency:'R',dark:false,reminders:false,
-  phone:'',pinHash:'',
-  cats:[],        // custom categories
-  items:{},       // {catId:[...items]}
-  histOpen:{},
-  budget:{
-    incomes:[],        // [{id,label,amount,payday}] — multiple income sources, combined for all calculations
-    expenses:[],       // [{id,name,amount,category,dueDay}]
-    ticked:{},         // {'YYYY-MM':{expId:true}}
-    remindersOn:false,
-    generated:{},      // {'YYYY-MM':{salary,totalExp,totalGroc,leftover,full,date}}
-    calMonth:null,     // {year,month}
-    grocFilter:'All',
-  },
-};
+function freshState(){
+  return{
+    name:'',currency:'R',dark:false,reminders:false,
+    phone:'',pinHash:'',
+    cats:[],        // custom categories
+    items:{},       // {catId:[...items]}
+    histOpen:{},
+    budget:{
+      incomes:[],        // [{id,label,amount,payday}] — multiple income sources, combined for all calculations
+      expenses:[],       // [{id,name,amount,category,dueDay}]
+      ticked:{},         // {'YYYY-MM':{expId:true}}
+      remindersOn:false,
+      generated:{},      // {'YYYY-MM':{salary,totalExp,totalGroc,leftover,full,date}}
+      calMonth:null,     // {year,month}
+      grocFilter:'All',
+      foodBudget:null,   // this cycle's planned food spend — must be set before adding grocery items
+      lastResetDate:null, // ISO date (YYYY-MM-DD) of the most recent pay day we've already reset for
+    },
+  };
+}
+let S=freshState();
 let activeTab='todo';
 let activeSub='personal'; // personal | work
 let activeBudgetSub='overview'; // overview | expenses | grocery | calendar | settings
@@ -546,6 +611,7 @@ let notifLastDay='';
 let editingExpId=null;
 let deletingExpId=null;
 let editingIncId=null;
+let intervalsStarted=false;
 let obStep='name';         // name | pin  (first-time onboarding)
 let pinAttempts=0;
 let otpCode=null;
@@ -583,11 +649,31 @@ function maskPhone(p){
   return'•••• '+digits.slice(-3);
 }
 
-/* ==================== BOOT ==================== */
-function boot(){
-  const saved=db.get('dl_v3');
-  if(saved)Object.assign(S,saved);
-  // Ensure built-in item lists exist
+/* ==================== BOOT / PROFILES ==================== */
+const PROFILES_KEY='dl_profiles_v1';
+const LAST_PROFILE_KEY='dl_last_profile';
+let activeProfileId=null;
+
+function loadProfiles(){return db.get(PROFILES_KEY)||[];}
+function saveProfiles(list){db.set(PROFILES_KEY,list);}
+function stateKey(id){return'dl_state_'+id;}
+
+// One-time upgrade path: if this browser has an old single-user save
+// (from before multi-user support existed) and no profile registry yet,
+// turn that save into the first registered profile without losing data.
+function migrateLegacySingleUser(){
+  const legacy=db.get('dl_v3');
+  if(legacy&&!db.get(PROFILES_KEY)){
+    const id=uid();
+    saveProfiles([{id,name:legacy.name||'User'}]);
+    db.set(stateKey(id),legacy);
+    db.set(LAST_PROFILE_KEY,id);
+  }
+}
+
+// Applies all the per-profile data migrations/defaults to whatever is
+// currently loaded into S. Safe to call on a brand-new blank profile too.
+function migrateProfileData(){
   ['todo_personal','todo_work','grocery','future'].forEach(id=>{
     if(!S.items[id])S.items[id]=[];
   });
@@ -606,7 +692,7 @@ function boot(){
     });
   });
   // Ensure budget state exists (for upgrades from older saved data)
-  if(!S.budget)S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:null,grocFilter:'All'};
+  if(!S.budget)S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:null,grocFilter:'All',foodBudget:null,lastResetDate:null};
   // Migrate old single salary/payday into the new multi-income list.
   if(!S.budget.incomes){
     S.budget.incomes=[];
@@ -614,43 +700,134 @@ function boot(){
       S.budget.incomes.push({id:uid(),label:'Salary',amount:S.budget.salary,payday:S.budget.payday||25});
     }
     delete S.budget.salary;delete S.budget.payday;
-    save();
   }
+  // Migrate from the old cycle-key-string tracking to a date-based one (see
+  // checkMonthlyReset) — just re-baseline to now rather than guessing a date
+  // from the old key, so this migration itself never wipes anything.
+  if(S.budget.lastResetDate===undefined){
+    S.budget.lastResetDate=S.budget.lastCycle?todayStr():null;
+  }
+  delete S.budget.lastCycle;
+  if(S.budget.foodBudget===undefined)S.budget.foodBudget=null;
   const now=new Date();
   S.budget.calMonth={year:now.getFullYear(),month:now.getMonth()};
   if(!S.budget.grocFilter)S.budget.grocFilter='All';
+}
+
+// Loads one profile's data into S and shows either onboarding-resume (only
+// possible if that profile's data is somehow incomplete) or its lock screen.
+function loadProfile(id){
+  activeProfileId=id;
+  S=freshState();
+  const saved=db.get(stateKey(id));
+  if(saved)Object.assign(S,saved);
+  migrateProfileData();
+  save();
+  // Reset per-session UI state so switching users doesn't carry over the
+  // previous person's screen position.
+  activeTab='todo';activeSub='personal';activeBudgetSub='overview';
+  pinAttempts=0;otpCode=null;otpExpiry=0;
   applyDark();
   updateBtns();
+  document.getElementById('profilePicker').style.display='none';
 
   if(!S.pinHash){
-    // First time (or upgrading from a save with no PIN yet) — run onboarding.
     obStep=S.name?'pin':'name';
     if(S.name){
       document.getElementById('obName').value=S.name;
       document.getElementById('obPhone').value=S.phone||'';
     }
     showObStep();
+    document.getElementById('lockScreen').style.display='none';
     document.getElementById('onboard').style.display='flex';
     return;
   }
-  // Returning user — require PIN before showing the app.
   document.getElementById('onboard').style.display='none';
   document.getElementById('lockGreeting').textContent='Welcome back, '+S.name;
   document.getElementById('lockPhoneMasked').textContent=maskPhone(S.phone);
   showLockStep('pin');
   document.getElementById('lockScreen').style.display='flex';
 }
+
+function renderProfilePicker(){
+  const profiles=loadProfiles();
+  const list=document.getElementById('profileList');
+  list.innerHTML=profiles.map(p=>
+    `<button class="profile-tile" data-pid="${p.id}">
+      <div class="profile-avatar">${esc((p.name||'?').trim().charAt(0).toUpperCase())}</div>
+      <div class="profile-name">${esc(p.name||'User')}</div>
+    </button>`
+  ).join('')+
+  `<button class="profile-tile add" id="profileAddBtn">
+    <div class="profile-avatar add">+</div>
+    <div class="profile-name">Add new user</div>
+  </button>`;
+  list.querySelectorAll('[data-pid]').forEach(b=>b.onclick=()=>loadProfile(b.getAttribute('data-pid')));
+  document.getElementById('profileAddBtn').onclick=startNewProfileOnboarding;
+}
+function showProfilePicker(){
+  document.getElementById('onboard').style.display='none';
+  document.getElementById('lockScreen').style.display='none';
+  renderProfilePicker();
+  document.getElementById('profilePicker').style.display='flex';
+}
+// Used both for the very first-ever profile and for adding an additional
+// one from the picker or from Settings — same onboarding form either way.
+function startNewProfileOnboarding(){
+  activeProfileId=null;
+  S=freshState();
+  obStep='name';
+  document.getElementById('obName').value='';
+  document.getElementById('obPhone').value='';
+  document.getElementById('obPin').value='';
+  document.getElementById('obPin2').value='';
+  showObStep();
+  document.getElementById('profilePicker').style.display='none';
+  document.getElementById('lockScreen').style.display='none';
+  document.getElementById('onboard').style.display='flex';
+}
+
+/* ==================== BOOT ==================== */
+function boot(){
+  migrateLegacySingleUser();
+  const profiles=loadProfiles();
+  if(profiles.length===0){
+    startNewProfileOnboarding();
+    return;
+  }
+  if(profiles.length===1){
+    loadProfile(profiles[0].id);
+    return;
+  }
+  const last=db.get(LAST_PROFILE_KEY);
+  if(last&&profiles.some(p=>p.id===last)){
+    loadProfile(last);
+    return;
+  }
+  showProfilePicker();
+}
 function enterApp(){
   document.getElementById('onboard').style.display='none';
   document.getElementById('lockScreen').style.display='none';
+  const picker=document.getElementById('profilePicker');if(picker)picker.style.display='none';
+  migrateProfileData(); // safe to call repeatedly — ensures a brand-new profile (which
+                         // skips loadProfile's migration on the very first onboarding)
+                         // has its item lists/budget defaults ready before first render.
   document.getElementById('topName').textContent=S.name+"'s Ledger";
+  checkMonthlyReset();
   render();
   checkBanners();
   checkPayBanner();
-  setInterval(checkBanners,60000);
-  setInterval(checkPayBanner,60000);
+  if(!intervalsStarted){
+    intervalsStarted=true;
+    setInterval(checkBanners,60000);
+    setInterval(checkPayBanner,60000);
+    setInterval(()=>{checkMonthlyReset();render();},60000);
+  }
 }
-function save(){db.set('dl_v3',S);}
+function save(){
+  if(activeProfileId)db.set(stateKey(activeProfileId),S);
+}
 
 /* ==================== HELPERS ==================== */
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
@@ -736,6 +913,22 @@ const bThisMonthKey=()=>{const n=new Date();return bMonthKey(n.getFullYear(),n.g
 const bThisYear=()=>new Date().getFullYear();
 const bThisMonth=()=>new Date().getMonth();
 const bTodayNum=()=>new Date().getDate();
+// The "current budget cycle" runs from the earliest pay day to the day before
+// the next one, rather than the calendar month — so bills automatically show
+// as unpaid again, and a fresh cycle starts, on payday rather than the 1st.
+// cycleKeyFor lets any date be checked against that logic (used by the
+// calendar, which browses real calendar months that don't line up with cycles).
+function cycleKeyFor(year,month,day){
+  const ep=earliestPayday();
+  if(!ep)return bMonthKey(year,month);
+  let y=year,m=month;
+  if(day<ep){m--;if(m<0){m=11;y--;}}
+  return bMonthKey(y,m);
+}
+function bCycleKey(){
+  const now=new Date();
+  return cycleKeyFor(now.getFullYear(),now.getMonth(),now.getDate());
+}
 const bFmt=n=>(S.currency||'R')+' '+Number(n||0).toFixed(2);
 function ordinal(n){const s=['th','st','nd','rd'];const v=n%100;return s[(v-20)%10]||s[v]||s[0];}
 function totalSalary(){return(S.budget.incomes||[]).reduce((s,i)=>s+(i.amount||0),0);}
@@ -754,12 +947,48 @@ function allGroceriesDone(){
 function grocTotal(){return (S.items.grocery||[]).filter(g=>!g.done).reduce((s,g)=>s+(g.qty||0)*(g.price||0),0);}
 function grocTotalAll(){return (S.items.grocery||[]).reduce((s,g)=>s+(g.qty||0)*(g.price||0),0);}
 
+// Starts a fresh budget cycle: bills automatically show as unpaid again
+// (handled just by the ticked map being keyed per-cycle — see bCycleKey),
+// and the grocery list is cleared so the user can start writing a fresh
+// list for the new month. Only fires when a real pay day has actually
+// occurred (a calendar-date scan) since the last time we checked — never
+// merely because the user added or edited a pay day with no time having
+// passed, and never twice on the same real day.
+function checkMonthlyReset(){
+  if(!S.budget)return;
+  const todayIso=todayStr();
+  if(!S.budget.lastResetDate){
+    // First time we've ever checked for this profile — record today as the
+    // baseline without touching anything the user has already entered.
+    S.budget.lastResetDate=todayIso;
+    save();
+    return;
+  }
+  if(S.budget.lastResetDate>=todayIso)return; // already checked today (or clock skew) — nothing to do
+  const paydays=[...paydaySet()];
+  const anchorDays=paydays.length?paydays:[1]; // no income configured yet -> fall back to calendar month rollover
+  let crossed=false;
+  const d=new Date(S.budget.lastResetDate+'T00:00:00');
+  const end=new Date(todayIso+'T00:00:00');
+  d.setDate(d.getDate()+1); // scan strictly AFTER the last check, through today inclusive
+  while(d<=end){
+    if(anchorDays.includes(d.getDate())){crossed=true;break;}
+    d.setDate(d.getDate()+1);
+  }
+  S.budget.lastResetDate=todayIso;
+  if(crossed){
+    if((S.items.grocery||[]).length)S.items.grocery=[];
+    S.budget.foodBudget=null;
+  }
+  save();
+}
+
 function checkPayBanner(){
   const banner=document.getElementById('payBanner');
   if(!banner)return;
   if(!totalSalary()){banner.className='pay-banner';return;}
   const now=new Date();
-  const mk=bThisMonthKey();
+  const mk=bCycleKey();
   const done=allExpensesDone(mk);
   const ep=earliestPayday();
   const isPaydayOrLater=ep!==null&&bTodayNum()>=ep;
@@ -849,7 +1078,7 @@ function renderTodo(){
       <label>Description</label>
       <textarea id="fDesc" rows="2" placeholder="More details (optional)"></textarea>
     </div>
-    <div class="frow">
+    <div class="frow dt-row">
       <div class="fg">
         <label>Start date <span class="req">*</span></label>
         <input type="date" id="fStartDate" min="${todayStr()}">
@@ -861,7 +1090,7 @@ function renderTodo(){
         <span class="err-msg" id="fStartTimeErr">Please select a start time.</span>
       </div>
     </div>
-    <div class="frow">
+    <div class="frow dt-row">
       <div class="fg">
         <label>End date <span class="req">*</span></label>
         <input type="date" id="fEndDate" min="${todayStr()}">
@@ -987,7 +1216,7 @@ function renderBudgetOverview(){
   if(!salary){
     return gateCard('Get started with your budget','Add at least one income source (and its pay day) in Settings first. Once that\'s set, you can add your monthly bills and grocery items.');
   }
-  const mk=bThisMonthKey();
+  const mk=bCycleKey();
   const ticked=getTicked(mk);
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
   const paidExp=b.expenses.filter(e=>ticked[e.id]).reduce((s,e)=>s+(e.amount||0),0);
@@ -1050,7 +1279,7 @@ function renderBudgetOverview(){
     html+=`<div class="card">
       <div class="card-label">This month's bills ${done?'✓ All paid':''}</div>
       <table class="exp-table"><thead><tr><th>Paid</th><th>Bill</th><th>Amount</th></tr></thead><tbody>`;
-    b.expenses.forEach(e=>{html+=expRow(e,ticked);});
+    b.expenses.forEach(e=>{html+=expRow(e,ticked,mk);});
     html+=`</tbody></table>`;
     if(done)html+=`<p style="color:var(--ok);font-size:13px;font-weight:700;margin-top:12px;">All bills paid for ${MONTHS[bThisMonth()]}!</p>`;
     html+=`</div>`;
@@ -1058,9 +1287,9 @@ function renderBudgetOverview(){
   return html;
 }
 
-function expRow(e,ticked){
+function expRow(e,ticked,mk){
   const paid=!!ticked[e.id];
-  return`<tr class="${paid?'paid':''}" data-eid="${e.id}">
+  return`<tr class="${paid?'paid':''}" data-eid="${e.id}" data-mk="${mk}">
     <td><input type="checkbox" class="exp-check" ${paid?'checked':''} data-act="tick"></td>
     <td class="exp-name">${esc(e.name)}<span class="exp-cat">${esc(e.category||'')}</span></td>
     <td class="exp-amt">${bFmt(e.amount)}</td>
@@ -1070,7 +1299,7 @@ function expRow(e,ticked){
 function renderBudgetExpenses(){
   const b=S.budget;
   if(!totalSalary())return gateCard('Add an income source first','You need to add at least one income source in Settings before you can add monthly bills.');
-  const mk=bThisMonthKey();
+  const mk=bCycleKey();
   const ticked=getTicked(mk);
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
 
@@ -1090,7 +1319,7 @@ function renderBudgetExpenses(){
       <table class="exp-table"><thead><tr><th>Paid</th><th>Name</th><th>Due</th><th>Amount</th><th></th></tr></thead><tbody>`;
     exps.forEach(e=>{
       const paid=!!ticked[e.id];
-      html+=`<tr class="${paid?'paid':''}" data-eid="${e.id}">
+      html+=`<tr class="${paid?'paid':''}" data-eid="${e.id}" data-mk="${mk}">
         <td><input type="checkbox" class="exp-check" ${paid?'checked':''} data-act="tick"></td>
         <td class="exp-name">${esc(e.name)}</td>
         <td class="li-meta">${e.dueDay?e.dueDay+ordinal(e.dueDay):'—'}</td>
@@ -1110,14 +1339,36 @@ function renderBudgetExpenses(){
 function renderBudgetGrocery(){
   const b=S.budget;
   if(!totalSalary())return gateCard('Add an income source first','You need to add at least one income source in Settings before you can add grocery items.');
+  if(!b.foodBudget){
+    return`<div class="card gate-card">
+      <div class="card-label">Set this month's food budget</div>
+      <p>Before you can add anything to your grocery list, decide how much you plan to spend on food this month. This resets each new pay cycle, so you'll set it fresh every month.</p>
+      <div class="fg" style="text-align:left;"><label>Food budget for ${MONTHS[bThisMonth()]} <span class="req">*</span></label>
+        <input type="number" id="gFoodBudget" min="0.01" step="0.01" placeholder="e.g. 1500">
+        <span class="err-msg" id="gFoodBudgetErr">Please enter an amount.</span></div>
+      <button class="btn primary" id="setFoodBudgetBtn">Set food budget</button>
+    </div>`;
+  }
   const all=S.items.grocery||[];
   const filter=b.grocFilter||'All';
   const filtered=filter==='All'?all:all.filter(g=>(g.category||'Other')===filter);
   const unbought=filtered.filter(g=>!g.done);
   const bought=filtered.filter(g=>g.done);
   const total=unbought.reduce((s,g)=>s+(g.qty||0)*(g.price||0),0);
+  const spentAll=grocTotalAll();
+  const remaining=b.foodBudget-spentAll;
+  const pct=b.foodBudget>0?Math.min((spentAll/b.foodBudget)*100,100):0;
+  const pctClass=pct>90?'over':pct>70?'warn':'';
 
   let html=`<div class="card">
+    <div class="card-label" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Food budget — ${MONTHS[bThisMonth()]}</span>
+      <button class="ab" id="editFoodBudgetBtn">Change</button>
+    </div>
+    <div class="prog-bg"><div class="prog-fill ${pctClass}" style="width:${pct}%"></div></div>
+    <div class="li-meta" style="margin-top:6px;">${bFmt(spentAll)} of ${bFmt(b.foodBudget)} spent · ${remaining>=0?bFmt(remaining)+' left':bFmt(Math.abs(remaining))+' over budget'}</div>
+  </div>
+  <div class="card">
     <div class="card-label">Add grocery item</div>
     <div class="fg"><label>Item name <span class="req">*</span></label>
       <input type="text" id="gName" placeholder="e.g. Milk, Bread" maxlength="80">
@@ -1164,8 +1415,6 @@ function renderBudgetCalendar(){
   const b=S.budget;
   if(!totalSalary())return gateCard('Add an income source first','Add at least one income source and its pay day in Settings to see your pay/bill calendar.');
   const{year,month}=b.calMonth;
-  const mk=bMonthKey(year,month);
-  const ticked=getTicked(mk);
   const now=new Date();
   const isThisMonth=year===now.getFullYear()&&month===now.getMonth();
   const firstDay=new Date(year,month,1).getDay();
@@ -1210,8 +1459,9 @@ function renderBudgetCalendar(){
       <div class="card-label">Bills due — ${MONTHS[month]}</div>
       <table class="exp-table"><thead><tr><th>Paid</th><th>Bill</th><th>Due</th><th>Amount</th></tr></thead><tbody>`;
     [...b.expenses].sort((a,b2)=>(a.dueDay||99)-(b2.dueDay||99)).forEach(e=>{
-      const paid=!!ticked[e.id];
-      html+=`<tr class="${paid?'paid':''}" data-eid="${e.id}">
+      const rowMk=cycleKeyFor(year,month,e.dueDay||1);
+      const paid=!!getTicked(rowMk)[e.id];
+      html+=`<tr class="${paid?'paid':''}" data-eid="${e.id}" data-mk="${rowMk}">
         <td><input type="checkbox" class="exp-check" ${paid?'checked':''} data-act="tick"></td>
         <td class="exp-name">${esc(e.name)}<span class="exp-cat">${esc(e.category||'')}</span></td>
         <td class="li-meta">${e.dueDay?e.dueDay+ordinal(e.dueDay):'Any'}</td>
@@ -1269,7 +1519,7 @@ function renderBudgetSettings(){
 
 function generateBudgetReport(){
   const b=S.budget;
-  const mk=bThisMonthKey();
+  const mk=bCycleKey();
   const salary=totalSalary();
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
   const hasGroc=(S.items.grocery||[]).length>0;
@@ -1283,7 +1533,7 @@ function generateBudgetReport(){
 /* ==================== MONTH OVERVIEW DOWNLOAD ==================== */
 function buildMonthOverviewHTML(){
   const b=S.budget;
-  const mk=bThisMonthKey();
+  const mk=bCycleKey();
   const ticked=getTicked(mk);
   const incomes=b.incomes||[];
   const salary=totalSalary();
@@ -1441,7 +1691,7 @@ function renderChecklist(catId){
       <input type="text" id="clItem" placeholder="Item name..." maxlength="120">
       <span class="err-msg" id="clItemErr">Please enter an item.</span>
     </div>
-    <div class="frow">
+    <div class="frow dt-row">
       <div class="fg">
         <label>Start date <span class="req">*</span></label>
         <input type="date" id="clStartDate" min="${todayStr()}">
@@ -1453,7 +1703,7 @@ function renderChecklist(catId){
         <span class="err-msg" id="clStartTimeErr">Please select a start time.</span>
       </div>
     </div>
-    <div class="frow">
+    <div class="frow dt-row">
       <div class="fg">
         <label>End date <span class="req">*</span></label>
         <input type="date" id="clEndDate" min="${todayStr()}">
@@ -1498,7 +1748,7 @@ function renderSticky(catId){
       </select>
       <span class="err-msg" id="stPriErr">Please select a label.</span>
     </div>
-    <div class="frow">
+    <div class="frow dt-row">
       <div class="fg">
         <label>Start date <span class="req">*</span></label>
         <input type="date" id="stStartDate" min="${todayStr()}">
@@ -1510,7 +1760,7 @@ function renderSticky(catId){
         <span class="err-msg" id="stStartTimeErr">Please select a start time.</span>
       </div>
     </div>
-    <div class="frow">
+    <div class="frow dt-row">
       <div class="fg">
         <label>End date <span class="req">*</span></label>
         <input type="date" id="stEndDate" min="${todayStr()}">
@@ -1577,6 +1827,12 @@ function renderSettings(){
     <button class="btn primary" id="saveSettingsBtn">Save</button>
   </div>
   <div class="card">
+    <div class="card-label">Account</div>
+    <div class="li-meta" style="margin-bottom:10px;">This device can be shared — everyone gets their own name, PIN, and completely separate data.</div>
+    <button class="btn secondary" id="switchUserBtn" style="margin-bottom:10px;">Switch user</button>
+    <button class="btn secondary" id="addUserBtn">+ Add another person</button>
+  </div>
+  <div class="card">
     <div class="card-label">Preferences</div>
     <div class="sw-row">
       <div><div class="sw-label">Dark mode</div></div>
@@ -1597,7 +1853,7 @@ function renderSettings(){
   <div class="card">
     <div class="card-label">Data</div>
     <button class="btn secondary" id="exportBtn" style="margin-bottom:10px;">Export as JSON</button>
-    <button class="btn danger" id="resetBtn">Reset all data</button>
+    <button class="btn danger" id="resetBtn">Delete my profile from this device</button>
   </div>`;
 }
 
@@ -1630,6 +1886,21 @@ function attachEvents(){
     if(isPast(sd,stm)){alert('That start date and time is in the past. Please choose a future start.');return;}
     const listId=fAddTodo.getAttribute('data-list');
     S.items[listId].push({id:uid(),title:t,desc:v('fDesc'),startDate:sd,startTime:stm,endDate:ed,endTime:etm,priority:pri,done:false,fav:false});
+    save();render();
+  };
+
+  /* Set / change this month's food budget (gates the grocery list) */
+  const setFoodBudgetBtn=document.getElementById('setFoodBudgetBtn');
+  if(setFoodBudgetBtn)setFoodBudgetBtn.onclick=()=>{
+    const amt=parseFloat(v('gFoodBudget'));
+    if(!amt||amt<=0||isNaN(amt)){showE('gFoodBudgetErr','gFoodBudget');return;}
+    hideE('gFoodBudgetErr','gFoodBudget');
+    S.budget.foodBudget=amt;
+    save();render();
+  };
+  const editFoodBudgetBtn=document.getElementById('editFoodBudgetBtn');
+  if(editFoodBudgetBtn)editFoodBudgetBtn.onclick=()=>{
+    S.budget.foodBudget=null;
     save();render();
   };
 
@@ -1708,11 +1979,19 @@ function attachEvents(){
     if(!n){showE('setNameErr','setName');return;}
     hideE('setNameErr','setName');
     S.name=n;S.currency=document.getElementById('setCurr')?.value||S.currency;
-    save();document.getElementById('topName').textContent=S.name+"'s Ledger";
+    save();
+    const profiles=loadProfiles();
+    const idx=profiles.findIndex(p=>p.id===activeProfileId);
+    if(idx>=0){profiles[idx].name=n;saveProfiles(profiles);}
+    document.getElementById('topName').textContent=S.name+"'s Ledger";
     alert('Saved!');render();
   };
   const darkSw=document.getElementById('darkSw');
   if(darkSw)darkSw.onclick=()=>{S.dark=!S.dark;applyDark();save();render();};
+  const switchUserBtn=document.getElementById('switchUserBtn');
+  if(switchUserBtn)switchUserBtn.onclick=()=>{showProfilePicker();};
+  const addUserBtn=document.getElementById('addUserBtn');
+  if(addUserBtn)addUserBtn.onclick=()=>{startNewProfileOnboarding();};
   const remindSw=document.getElementById('remindSw');
   if(remindSw)remindSw.onclick=async()=>{
     S.reminders=!S.reminders;
@@ -1726,7 +2005,13 @@ function attachEvents(){
   };
   const resetBtn=document.getElementById('resetBtn');
   if(resetBtn)resetBtn.onclick=()=>{
-    if(confirm('This will delete ALL your data permanently. Are you sure?')){localStorage.clear();location.reload();}
+    if(confirm('This will permanently delete YOUR profile and data from this device. Other people using this device are not affected. Are you sure?')){
+      const remaining=loadProfiles().filter(p=>p.id!==activeProfileId);
+      saveProfiles(remaining);
+      db.remove(stateKey(activeProfileId));
+      if(db.get(LAST_PROFILE_KEY)===activeProfileId)db.remove(LAST_PROFILE_KEY);
+      location.reload();
+    }
   };
 
   /* History toggles */
@@ -1816,7 +2101,7 @@ function attachEvents(){
   const resetBudgetBtn=document.getElementById('resetBudgetBtn');
   if(resetBudgetBtn)resetBudgetBtn.onclick=()=>{
     if(confirm('This will delete all your income sources, budget bills, grocery items and settings. Are you sure?')){
-      S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:{year:new Date().getFullYear(),month:new Date().getMonth()},grocFilter:'All'};
+      S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:{year:new Date().getFullYear(),month:new Date().getMonth()},grocFilter:'All',foodBudget:null,lastResetDate:todayStr()};
       S.items.grocery=[];
       save();render();
     }
@@ -1826,7 +2111,7 @@ function attachEvents(){
   pg.querySelectorAll('.exp-check[data-act="tick"]').forEach(cb=>{
     cb.addEventListener('change',e=>{
       const row=e.target.closest('[data-eid]');if(!row)return;
-      const eid=row.getAttribute('data-eid');const mk=bThisMonthKey();
+      const eid=row.getAttribute('data-eid');const mk=row.getAttribute('data-mk')||bCycleKey();
       if(!S.budget.ticked[mk])S.budget.ticked[mk]={};
       if(e.target.checked)S.budget.ticked[mk][eid]=true;else delete S.budget.ticked[mk][eid];
       save();checkPayBanner();render();
@@ -1980,7 +2265,7 @@ function openItemEdit(id,listId){
         <input type="text" id="eT" value="${esc(it.title||'')}" maxlength="120">
         <span class="err-msg" id="eTErr">Required.</span></div>
       <div class="fg"><label>Description</label><textarea id="eDesc" rows="2">${esc(it.desc||'')}</textarea></div>
-      <div class="frow">
+      <div class="frow dt-row">
         <div class="fg"><label>Start date <span class="req">*</span></label>
           <input type="date" id="eStartDate" value="${it.startDate||it.date||''}">
           <span class="err-msg" id="eStartDateErr">Required.</span></div>
@@ -1988,7 +2273,7 @@ function openItemEdit(id,listId){
           <input type="time" id="eStartTime" value="${it.startTime||it.time||''}">
           <span class="err-msg" id="eStartTimeErr">Required.</span></div>
       </div>
-      <div class="frow">
+      <div class="frow dt-row">
         <div class="fg"><label>End date <span class="req">*</span></label>
           <input type="date" id="eEndDate" value="${it.endDate||it.date||''}">
           <span class="err-msg" id="eEndDateErr">Required.</span></div>
@@ -2039,11 +2324,11 @@ function openItemEdit(id,listId){
           <option value="medium" ${!it.priority||it.priority==='medium'?'selected':''}>Medium</option>
           <option value="low" ${it.priority==='low'?'selected':''}>Low</option>
         </select></div>
-      <div class="frow">
+      <div class="frow dt-row">
         <div class="fg"><label>Start date</label><input type="date" id="eSStartDate" value="${it.startDate||it.date||''}"></div>
         <div class="fg"><label>Start time</label><input type="time" id="eSStartTime" value="${it.startTime||it.time||''}"></div>
       </div>
-      <div class="frow">
+      <div class="frow dt-row">
         <div class="fg"><label>End date</label><input type="date" id="eSEndDate" value="${it.endDate||it.date||''}"></div>
         <div class="fg"><label>End time</label><input type="time" id="eSEndTime" value="${it.endTime||it.time||''}"></div>
       </div>
@@ -2206,6 +2491,12 @@ document.getElementById('obFinish').onclick=async()=>{
   if(pin!==pin2){showE('obPin2Err','obPin2');return;}else hideE('obPin2Err','obPin2');
   S.phone=phone;
   S.pinHash=await hashPin(pin);
+  if(!activeProfileId)activeProfileId=uid();
+  const profiles=loadProfiles();
+  const idx=profiles.findIndex(p=>p.id===activeProfileId);
+  if(idx>=0)profiles[idx].name=S.name;else profiles.push({id:activeProfileId,name:S.name});
+  saveProfiles(profiles);
+  db.set(LAST_PROFILE_KEY,activeProfileId);
   save();
   enterApp();
 };
