@@ -312,6 +312,34 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
 .cat-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
 .cat-pill{border:1.5px solid var(--border);background:var(--surface);color:var(--text2);border-radius:99px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
 .cat-pill.on{background:var(--p);border-color:var(--p);color:#fff;}
+
+/* ===== BUCKET LIST — styled like a dream journal / travel log ===== */
+.bucket-progress-card{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border-radius:var(--r);padding:20px;margin-bottom:16px;text-align:center;box-shadow:0 8px 24px rgba(161,102,47,.25);}
+.bucket-progress-card .bp-count{font-size:30px;font-weight:800;line-height:1.1;}
+.bucket-progress-card .bp-label{font-size:12px;opacity:.9;text-transform:uppercase;letter-spacing:.6px;font-weight:700;margin-top:4px;}
+.bucket-progress-card .prog-bg{background:rgba(255,255,255,.3);margin-top:12px;}
+.bucket-progress-card .prog-fill{background:#fff !important;}
+.bucket-empty{text-align:center;padding:36px 20px;color:var(--text3);}
+.bucket-empty .be-icon{font-size:40px;margin-bottom:10px;}
+.bucket-empty .be-text{font-size:14px;line-height:1.6;max-width:280px;margin:0 auto;}
+.bucket-cat-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.bucket-card{position:relative;background:var(--surface);border:2px dashed var(--border2);border-radius:16px;padding:16px;margin-bottom:12px;overflow:hidden;box-shadow:var(--shadow);}
+.bucket-card.achieved{border-style:solid;border-color:var(--acc2);background:linear-gradient(160deg,rgba(161,102,47,.08),var(--surface) 60%);}
+.bucket-card .bc-top{display:flex;align-items:flex-start;gap:12px;}
+.bucket-card .bc-icon{font-size:22px;flex-shrink:0;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border-radius:50%;border:1px solid var(--border);}
+.bucket-card.achieved .bc-icon{background:var(--acc);border-color:var(--acc);}
+.bucket-card .bc-body{flex:1;min-width:0;}
+.bucket-card .bc-title{font-size:16px;font-weight:800;color:var(--text);word-break:break-word;}
+.bucket-card.achieved .bc-title{color:var(--acc);}
+.bucket-card .bc-cat{font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:3px;}
+.bucket-card .bc-why{font-size:13px;color:var(--text2);margin-top:10px;line-height:1.55;font-style:italic;padding-left:10px;border-left:3px solid var(--border);}
+.bucket-card .bc-date{font-size:11.5px;color:var(--text3);margin-top:10px;display:flex;align-items:center;gap:5px;}
+.bucket-card .bc-stamp{position:absolute;top:14px;right:-34px;background:var(--acc);color:#fff;font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;padding:4px 38px;transform:rotate(38deg);box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.bucket-card .bc-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.bucket-mark-btn{border:2px solid var(--acc);background:transparent;color:var(--acc);border-radius:99px;padding:8px 16px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s,color .15s;flex:1;min-width:0;}
+.bucket-mark-btn.on{background:var(--acc);color:#fff;}
+.bucket-card .ab{flex-shrink:0;}
+body.dark .bucket-card.achieved{background:linear-gradient(160deg,rgba(161,102,47,.18),var(--surface) 60%);}
 </style>
 </head>
 <body>
@@ -442,6 +470,7 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
   <button class="tab active" data-tab="todo">To-Do</button>
   <button class="tab" data-tab="budget">Budget</button>
   <button class="tab" data-tab="future">Future Plans</button>
+  <button class="tab" data-tab="bucket">🪣 Bucket List</button>
   <button class="tab" data-tab="addcat">+ Add category</button>
   <button class="tab" data-tab="settings" style="display:none;">Settings</button>
 </div>
@@ -508,6 +537,7 @@ body.dark .stag.missed{background:#3a0a0a;color:#f87171;}
       <span class="err-msg" id="expAmountErr">Please enter an amount.</span></div>
     <div class="fg"><label>Category</label>
       <select id="expCategory">
+        <option value="Food">Food</option>
         <option value="Housing">Housing</option>
         <option value="Transport">Transport</option>
         <option value="Utilities">Utilities</option>
@@ -573,8 +603,12 @@ const MONTHS=['January','February','March','April','May','June','July','August',
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const PRIORITIES=['high','medium','low'];
 const PRICOLORS={high:'var(--red)',medium:'var(--acc)',low:'var(--ok)'};
-const EXP_CATS=['Housing','Transport','Utilities','Insurance','Medical','Education','Entertainment','Savings','Other'];
+const EXP_CATS=['Food','Housing','Transport','Utilities','Insurance','Medical','Education','Entertainment','Savings','Other'];
 const GROC_CATS=['Food','Toiletries','Detergents'];
+// Keep this list, its icons, and the <select id="bkCategory"> options in the
+// bucket-list modal HTML in sync with each other.
+const BUCKET_CATS=['Travel','Adventure','Career','Relationships','Creative','Personal Growth','Financial','Other'];
+const BUCKET_ICONS={Travel:'✈️',Adventure:'🏔️',Career:'💼',Relationships:'❤️',Creative:'🎨','Personal Growth':'🌱',Financial:'💰',Other:'📌'};
 
 /* ==================== STATE ==================== */
 function freshState(){
@@ -589,10 +623,9 @@ function freshState(){
       expenses:[],       // [{id,name,amount,category,dueDay}]
       ticked:{},         // {'YYYY-MM':{expId:true}}
       remindersOn:false,
-      generated:{},      // {'YYYY-MM':{salary,totalExp,totalGroc,leftover,full,date}}
+      generated:{},      // {'YYYY-MM':{salary,totalExp,foodBill,leftover,full,date}}
       calMonth:null,     // {year,month}
       grocFilter:'All',
-      foodBudget:null,   // this cycle's planned food spend — must be set before adding grocery items
       lastResetDate:null, // ISO date (YYYY-MM-DD) of the most recent pay day we've already reset for
     },
   };
@@ -674,7 +707,7 @@ function migrateLegacySingleUser(){
 // Applies all the per-profile data migrations/defaults to whatever is
 // currently loaded into S. Safe to call on a brand-new blank profile too.
 function migrateProfileData(){
-  ['todo_personal','todo_work','grocery','future'].forEach(id=>{
+  ['todo_personal','todo_work','grocery','future','bucket'].forEach(id=>{
     if(!S.items[id])S.items[id]=[];
   });
   S.cats.forEach(c=>{if(!S.items[c.id])S.items[c.id]=[];});
@@ -692,7 +725,7 @@ function migrateProfileData(){
     });
   });
   // Ensure budget state exists (for upgrades from older saved data)
-  if(!S.budget)S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:null,grocFilter:'All',foodBudget:null,lastResetDate:null};
+  if(!S.budget)S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:null,grocFilter:'All',lastResetDate:null};
   // Migrate old single salary/payday into the new multi-income list.
   if(!S.budget.incomes){
     S.budget.incomes=[];
@@ -708,7 +741,13 @@ function migrateProfileData(){
     S.budget.lastResetDate=S.budget.lastCycle?todayStr():null;
   }
   delete S.budget.lastCycle;
-  if(S.budget.foodBudget===undefined)S.budget.foodBudget=null;
+  // Old profiles may still have a standalone foodBudget field from before the
+  // food bill became a regular Bills-tab entry — migrate it into an actual
+  // "Food" category expense so nothing is silently lost, then drop the field.
+  if(S.budget.foodBudget){
+    S.budget.expenses.push({id:uid(),name:'Food',amount:S.budget.foodBudget,category:'Food',dueDay:null});
+  }
+  delete S.budget.foodBudget;
   const now=new Date();
   S.budget.calMonth={year:now.getFullYear(),month:now.getMonth()};
   if(!S.budget.grocFilter)S.budget.grocFilter='All';
@@ -946,6 +985,10 @@ function allGroceriesDone(){
 }
 function grocTotal(){return (S.items.grocery||[]).filter(g=>!g.done).reduce((s,g)=>s+(g.qty||0)*(g.price||0),0);}
 function grocTotalAll(){return (S.items.grocery||[]).reduce((s,g)=>s+(g.qty||0)*(g.price||0),0);}
+// The "food bill" is just a regular bill (or bills) filed under the Food
+// category — adding it once in the Bills tab is what unlocks the Grocery
+// tab, so there's no separate food-budget field to fill in twice.
+function foodBillAmount(){return (S.budget.expenses||[]).filter(e=>e.category==='Food').reduce((s,e)=>s+(e.amount||0),0);}
 
 // Starts a fresh budget cycle: bills automatically show as unpaid again
 // (handled just by the ticked map being keyed per-cycle — see bCycleKey),
@@ -978,7 +1021,6 @@ function checkMonthlyReset(){
   S.budget.lastResetDate=todayIso;
   if(crossed){
     if((S.items.grocery||[]).length)S.items.grocery=[];
-    S.budget.foodBudget=null;
   }
   save();
 }
@@ -1026,6 +1068,7 @@ function render(){
   if(activeTab==='todo')        pg.innerHTML=renderTodo();
   else if(activeTab==='budget') pg.innerHTML=renderBudget();
   else if(activeTab==='future') pg.innerHTML=renderFuture('future');
+  else if(activeTab==='bucket') pg.innerHTML=renderBucketList();
   else if(activeTab==='settings')pg.innerHTML=renderSettings();
   else{
     const cat=S.cats.find(c=>c.id===activeTab);
@@ -1193,11 +1236,12 @@ function grocRow(g,catId){
 }
 
 /* ==================== BUDGET ==================== */
-function gateCard(title,msg){
+function gateCard(title,msg,target,label){
+  target=target||'settings';label=label||'Go to Settings';
   return`<div class="card gate-card">
     <div class="card-label">${title}</div>
     <p>${msg}</p>
-    <button class="btn primary" data-act="goBudgetSettings">Go to Settings</button>
+    <button class="btn primary" data-act="goBudgetTab" data-target="${target}">${label}</button>
   </div>`;
 }
 
@@ -1220,12 +1264,12 @@ function renderBudgetOverview(){
   const ticked=getTicked(mk);
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
   const paidExp=b.expenses.filter(e=>ticked[e.id]).reduce((s,e)=>s+(e.amount||0),0);
-  const totalGroc=grocTotalAll();
+  const foodBill=foodBillAmount();
   const pct=totalExp>0?Math.min((totalExp/(salary||1))*100,100):0;
   const pctClass=pct>90?'over':pct>70?'warn':'';
   const done=allExpensesDone(mk);
   const hasExp=b.expenses.length>0;
-  const hasGroc=(S.items.grocery||[]).length>0;
+  const hasFoodBill=foodBill>0;
   const incomes=b.incomes||[];
   const paydays=[...paydaySet()].sort((a,b2)=>a-b2);
 
@@ -1248,7 +1292,7 @@ function renderBudgetOverview(){
 
   html+=`<div class="summary-grid">
     <div class="summary-box red"><div class="sb-lbl">Total bills</div><div class="sb-val">${bFmt(totalExp)}</div></div>
-    <div class="summary-box gold"><div class="sb-lbl">Grocery spend</div><div class="sb-val">${bFmt(totalGroc)}</div></div>
+    <div class="summary-box gold"><div class="sb-lbl">Food bill</div><div class="sb-val">${bFmt(foodBill)}</div></div>
     <div class="summary-box green"><div class="sb-lbl">Paid so far</div><div class="sb-val">${bFmt(paidExp)}</div></div>
   </div>`;
 
@@ -1262,15 +1306,15 @@ function renderBudgetOverview(){
     html+=`<div class="card"><div class="empty">Add your monthly bills in the Bills tab to generate a report.</div></div>`;
   }else{
     html+=`<button class="btn accent" id="generateBtn" style="margin-bottom:14px;">Generate Monthly Report</button>`;
-    if(!hasGroc)html+=`<div class="li-meta" style="margin:-8px 0 14px;">This will be a bills-only report — add grocery items for a full report including groceries.</div>`;
+    if(!hasFoodBill)html+=`<div class="li-meta" style="margin:-8px 0 14px;">This will be a bills-only report — add a "Food" bill in the Bills tab for a report that also accounts for food.</div>`;
     const gen=b.generated&&b.generated[mk];
     if(gen){
       const pos=gen.leftover>=0;
       html+=`<div class="result-banner ${pos?'positive':'negative'}">
         <div class="rb-label">${pos?'You will have left over':'You are overspending by'}</div>
         <div class="rb-amount">${bFmt(Math.abs(gen.leftover))}</div>
-        <div class="rb-sub">Income ${bFmt(gen.salary)} − Bills ${bFmt(gen.totalExp)}${gen.full?' − Groceries '+bFmt(gen.totalGroc):''}</div>
-        <div class="rb-tag">${gen.full?'Full report — bills + groceries':'Partial report — bills only'}</div>
+        <div class="rb-sub">Income ${bFmt(gen.salary)} − Bills ${bFmt(gen.totalExp)}${gen.full?' (incl. food bill of '+bFmt(gen.foodBill)+')':''}</div>
+        <div class="rb-tag">${gen.full?'Full report — includes your food bill':'Partial report — no food bill added yet'}</div>
       </div>`;
     }
   }
@@ -1339,15 +1383,13 @@ function renderBudgetExpenses(){
 function renderBudgetGrocery(){
   const b=S.budget;
   if(!totalSalary())return gateCard('Add an income source first','You need to add at least one income source in Settings before you can add grocery items.');
-  if(!b.foodBudget){
-    return`<div class="card gate-card">
-      <div class="card-label">Set this month's food budget</div>
-      <p>Before you can add anything to your grocery list, decide how much you plan to spend on food this month. This resets each new pay cycle, so you'll set it fresh every month.</p>
-      <div class="fg" style="text-align:left;"><label>Food budget for ${MONTHS[bThisMonth()]} <span class="req">*</span></label>
-        <input type="number" id="gFoodBudget" min="0.01" step="0.01" placeholder="e.g. 1500">
-        <span class="err-msg" id="gFoodBudgetErr">Please enter an amount.</span></div>
-      <button class="btn primary" id="setFoodBudgetBtn">Set food budget</button>
-    </div>`;
+  const foodBill=foodBillAmount();
+  if(!foodBill){
+    return gateCard(
+      'Add a food bill first',
+      'Before you can start your grocery list, add a bill in the Bills tab under the "Food" category — that becomes your food budget for the month, and it\'ll show up here automatically.',
+      'expenses','Go to Bills'
+    );
   }
   const all=S.items.grocery||[];
   const filter=b.grocFilter||'All';
@@ -1356,17 +1398,17 @@ function renderBudgetGrocery(){
   const bought=filtered.filter(g=>g.done);
   const total=unbought.reduce((s,g)=>s+(g.qty||0)*(g.price||0),0);
   const spentAll=grocTotalAll();
-  const remaining=b.foodBudget-spentAll;
-  const pct=b.foodBudget>0?Math.min((spentAll/b.foodBudget)*100,100):0;
+  const remaining=foodBill-spentAll;
+  const pct=foodBill>0?Math.min((spentAll/foodBill)*100,100):0;
   const pctClass=pct>90?'over':pct>70?'warn':'';
 
   let html=`<div class="card">
     <div class="card-label" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>Food budget — ${MONTHS[bThisMonth()]}</span>
-      <button class="ab" id="editFoodBudgetBtn">Change</button>
+      <span>Food bill — ${MONTHS[bThisMonth()]}</span>
+      <button class="ab" data-act="goBudgetTab" data-target="expenses">Edit in Bills</button>
     </div>
     <div class="prog-bg"><div class="prog-fill ${pctClass}" style="width:${pct}%"></div></div>
-    <div class="li-meta" style="margin-top:6px;">${bFmt(spentAll)} of ${bFmt(b.foodBudget)} spent · ${remaining>=0?bFmt(remaining)+' left':bFmt(Math.abs(remaining))+' over budget'}</div>
+    <div class="li-meta" style="margin-top:6px;">${bFmt(spentAll)} of ${bFmt(foodBill)} spent · ${remaining>=0?bFmt(remaining)+' left':bFmt(Math.abs(remaining))+' over budget'}</div>
   </div>
   <div class="card">
     <div class="card-label">Add grocery item</div>
@@ -1522,11 +1564,12 @@ function generateBudgetReport(){
   const mk=bCycleKey();
   const salary=totalSalary();
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
-  const hasGroc=(S.items.grocery||[]).length>0;
-  const totalGroc=hasGroc?grocTotalAll():0;
-  const leftover=salary-totalExp-totalGroc;
+  const foodBill=foodBillAmount();
+  // The food bill is just one of the regular expenses (category "Food"), so
+  // it's already included in totalExp — no separate subtraction needed.
+  const leftover=salary-totalExp;
   if(!b.generated)b.generated={};
-  b.generated[mk]={salary,totalExp,totalGroc,leftover,full:hasGroc,date:new Date().toISOString()};
+  b.generated[mk]={salary,totalExp,foodBill,leftover,full:foodBill>0,date:new Date().toISOString()};
   save();render();
 }
 
@@ -1540,7 +1583,9 @@ function buildMonthOverviewHTML(){
   const totalExp=b.expenses.reduce((s,e)=>s+(e.amount||0),0);
   const paidExp=b.expenses.filter(e=>ticked[e.id]).reduce((s,e)=>s+(e.amount||0),0);
   const groc=S.items.grocery||[];
-  const totalGroc=grocTotalAll();
+  const foodBill=foodBillAmount();
+  const grocSpent=grocTotalAll();
+  const foodRemaining=foodBill-grocSpent;
   const gen=b.generated&&b.generated[mk];
   const monthLabel=MONTHS[bThisMonth()]+' '+bThisYear();
   const genDate=new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
@@ -1564,8 +1609,8 @@ function buildMonthOverviewHTML(){
     <div class="summary ${gen.leftover>=0?'pos':'neg'}">
       <div class="summary-label">${gen.leftover>=0?'Left over this month':'Overspending this month'}</div>
       <div class="summary-amt">${bFmt(Math.abs(gen.leftover))}</div>
-      <div class="summary-sub">Income ${bFmt(gen.salary)} − Bills ${bFmt(gen.totalExp)}${gen.full?' − Groceries '+bFmt(gen.totalGroc):''}</div>
-      <div class="summary-tag">${gen.full?'Full report — bills + groceries':'Partial report — bills only'}</div>
+      <div class="summary-sub">Income ${bFmt(gen.salary)} − Bills ${bFmt(gen.totalExp)}${gen.full?' (incl. food bill of '+bFmt(gen.foodBill)+')':''}</div>
+      <div class="summary-tag">${gen.full?'Full report — includes your food bill':'Partial report — no food bill added yet'}</div>
     </div>`:`
     <div class="summary neutral">
       <div class="summary-label">No report generated yet this month</div>
@@ -1611,7 +1656,7 @@ function buildMonthOverviewHTML(){
     <table><thead><tr><th>Bill</th><th>Category</th><th>Due</th><th>Status</th><th class="amt">Amount</th></tr></thead>
     <tbody>${expRows}</tbody></table>
 
-    <h2>Groceries (total: ${bFmt(totalGroc)})</h2>
+    <h2>Groceries (food bill: ${bFmt(foodBill)}, spent: ${bFmt(grocSpent)}, ${foodRemaining>=0?'remaining: '+bFmt(foodRemaining):'over by: '+bFmt(Math.abs(foodRemaining))})</h2>
     <table><thead><tr><th>Item</th><th>Qty</th><th>Unit price</th><th class="amt">Subtotal</th></tr></thead>
     <tbody>${grocRows}</tbody></table>
 
@@ -1673,6 +1718,86 @@ function goalCard(it,catId,isHist){
         <button class="ab" data-act="edit">Edit</button>
         <button class="ab" data-act="del">✕</button>
       </div>
+    </div>
+  </div>`;
+}
+
+/* ==================== BUCKET LIST ==================== */
+function renderBucketList(){
+  const all=S.items.bucket||[];
+  const active=all.filter(i=>!i.done);
+  const achieved=all.filter(i=>i.done);
+  const totalCount=all.length;
+  const pct=totalCount?Math.round((achieved.length/totalCount)*100):0;
+
+  let html='';
+  if(totalCount>0){
+    html+=`<div class="bucket-progress-card">
+      <div class="bp-count">🏆 ${achieved.length} of ${totalCount}</div>
+      <div class="bp-label">Dreams achieved</div>
+      <div class="prog-bg"><div class="prog-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
+  html+=`<div class="card">
+    <div class="card-label">Add a dream</div>
+    <div class="fg">
+      <label>What do you want to do or experience? <span class="req">*</span></label>
+      <input type="text" id="bkTitle" placeholder="e.g. See the Northern Lights" maxlength="100">
+      <span class="err-msg" id="bkTitleErr">Please enter a title.</span>
+    </div>
+    <div class="fg">
+      <label>Category <span class="req">*</span></label>
+      <select id="bkCategory">${BUCKET_CATS.map(c=>`<option value="${c}">${BUCKET_ICONS[c]} ${c}</option>`).join('')}</select>
+    </div>
+    <div class="fg">
+      <label>Why does this matter to you? (optional)</label>
+      <textarea id="bkWhy" rows="3" placeholder="What makes this a dream worth chasing?" maxlength="300"></textarea>
+    </div>
+    <div class="fg">
+      <label>Target date (optional — leave blank for "someday")</label>
+      <input type="date" id="bkTargetDate">
+    </div>
+    <button class="btn primary" id="bkAddBtn">Add to bucket list</button>
+  </div>`;
+
+  if(!totalCount){
+    html+=`<div class="card"><div class="bucket-empty">
+      <div class="be-icon">🌍</div>
+      <div class="be-text">Your bucket list is empty. What's something you've always dreamed of doing? Add it above and start chasing it.</div>
+    </div></div>`;
+  }else{
+    if(!active.length){
+      html+=`<div class="card"><div class="bucket-empty">
+        <div class="be-icon">🎉</div>
+        <div class="be-text">You've achieved everything on your list! Add a new dream above.</div>
+      </div></div>`;
+    }else{
+      active.forEach(it=>{html+=bucketCard(it);});
+    }
+    if(achieved.length)html+=histBlock('bucket',achieved,it=>bucketCard(it),'bk');
+  }
+  return html;
+}
+
+function bucketCard(it){
+  const icon=BUCKET_ICONS[it.category]||'📌';
+  return`<div class="bucket-card ${it.done?'achieved':''}" data-id="${it.id}" data-list="bucket">
+    ${it.done?'<div class="bc-stamp">Achieved</div>':''}
+    <div class="bc-top">
+      <div class="bc-icon">${icon}</div>
+      <div class="bc-body">
+        <div class="bc-title">${esc(it.title)}</div>
+        <div class="bc-cat">${esc(it.category||'Other')}</div>
+      </div>
+      ${favBtn(it)}
+    </div>
+    ${it.why?`<div class="bc-why">${esc(it.why)}</div>`:''}
+    ${it.done&&it.achievedDate?`<div class="bc-date">🏆 Achieved ${it.achievedDate}</div>`:!it.done&&it.targetDate?`<div class="bc-date">🎯 Target: ${it.targetDate}</div>`:!it.done?`<div class="bc-date">✨ Someday</div>`:''}
+    <div class="bc-actions">
+      <button class="bucket-mark-btn ${it.done?'on':''}" data-act="toggle">${it.done?'✓ Achieved':'Mark as achieved'}</button>
+      <button class="ab" data-act="edit">Edit</button>
+      <button class="ab" data-act="del">✕</button>
     </div>
   </div>`;
 }
@@ -1889,21 +2014,6 @@ function attachEvents(){
     save();render();
   };
 
-  /* Set / change this month's food budget (gates the grocery list) */
-  const setFoodBudgetBtn=document.getElementById('setFoodBudgetBtn');
-  if(setFoodBudgetBtn)setFoodBudgetBtn.onclick=()=>{
-    const amt=parseFloat(v('gFoodBudget'));
-    if(!amt||amt<=0||isNaN(amt)){showE('gFoodBudgetErr','gFoodBudget');return;}
-    hideE('gFoodBudgetErr','gFoodBudget');
-    S.budget.foodBudget=amt;
-    save();render();
-  };
-  const editFoodBudgetBtn=document.getElementById('editFoodBudgetBtn');
-  if(editFoodBudgetBtn)editFoodBudgetBtn.onclick=()=>{
-    S.budget.foodBudget=null;
-    save();render();
-  };
-
   /* Add Grocery */
   const gAddBtn=document.getElementById('gAddBtn');
   if(gAddBtn)gAddBtn.onclick=()=>{
@@ -1972,6 +2082,16 @@ function attachEvents(){
     save();render();
   };
 
+  /* Add Bucket List item */
+  const bkAddBtn=document.getElementById('bkAddBtn');
+  if(bkAddBtn)bkAddBtn.onclick=()=>{
+    const t=v('bkTitle'),cat=document.getElementById('bkCategory')?.value,why=v('bkWhy'),target=v('bkTargetDate')||null;
+    if(!t){showE('bkTitleErr','bkTitle');return;}
+    hideE('bkTitleErr','bkTitle');
+    S.items.bucket.push({id:uid(),title:t,category:cat,why,targetDate:target,done:false,achievedDate:null,fav:false});
+    save();render();
+  };
+
   /* Settings */
   const saveSBtn=document.getElementById('saveSettingsBtn');
   if(saveSBtn)saveSBtn.onclick=()=>{
@@ -2032,9 +2152,9 @@ function attachEvents(){
      container forever. */
 
   /* ===== BUDGET EVENTS ===== */
-  /* Gate button -> jump to budget settings */
-  pg.querySelectorAll('[data-act="goBudgetSettings"]').forEach(b=>b.onclick=()=>{
-    activeBudgetSub='settings';render();
+  /* Gate button -> jump to the given budget sub-tab (settings, expenses, etc.) */
+  pg.querySelectorAll('[data-act="goBudgetTab"]').forEach(b=>b.onclick=()=>{
+    activeBudgetSub=b.getAttribute('data-target')||'settings';render();
   });
 
   /* Generate report */
@@ -2101,7 +2221,7 @@ function attachEvents(){
   const resetBudgetBtn=document.getElementById('resetBudgetBtn');
   if(resetBudgetBtn)resetBudgetBtn.onclick=()=>{
     if(confirm('This will delete all your income sources, budget bills, grocery items and settings. Are you sure?')){
-      S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:{year:new Date().getFullYear(),month:new Date().getMonth()},grocFilter:'All',foodBudget:null,lastResetDate:todayStr()};
+      S.budget={incomes:[],expenses:[],ticked:{},remindersOn:false,generated:{},calMonth:{year:new Date().getFullYear(),month:new Date().getMonth()},grocFilter:'All',lastResetDate:todayStr()};
       S.items.grocery=[];
       save();render();
     }
@@ -2160,7 +2280,7 @@ function attachEvents(){
     const row=el.closest('[data-id]');if(!row)return;
     const id=row.getAttribute('data-id');const listId=row.getAttribute('data-list');
     const it=(S.items[listId]||[]).find(i=>i.id===id);if(!it)return;
-    if(act==='toggle'){it.done=!it.done;save();render();}
+    if(act==='toggle'){it.done=!it.done;if(listId==='bucket')it.achievedDate=it.done?todayStr():null;save();render();}
     if(act==='fav'){it.fav=!it.fav;save();render();}
     if(act==='color'){it.color=el.getAttribute('data-color');save();render();}
     if(act==='edit')openItemEdit(id,listId);
@@ -2248,6 +2368,7 @@ function getItemType(listId){
   if(listId==='todo_personal'||listId==='todo_work')return'todo';
   if(listId==='grocery')return'grocery';
   if(listId==='future')return'goal';
+  if(listId==='bucket')return'bucket';
   const cat=S.cats.find(c=>c.id===listId);
   return cat?cat.type:'checklist';
 }
@@ -2313,6 +2434,17 @@ function openItemEdit(id,listId){
       <div class="fg"><label>Description <span class="req">*</span></label>
         <textarea id="eGDesc" rows="3">${esc(it.desc||'')}</textarea>
         <span class="err-msg" id="eGDescErr">Required.</span></div>`;
+  }else if(type==='bucket'){
+    f.innerHTML=`
+      <div class="fg"><label>What do you want to do or experience? <span class="req">*</span></label>
+        <input type="text" id="eBkTitle" value="${esc(it.title||'')}" maxlength="100">
+        <span class="err-msg" id="eBkTitleErr">Required.</span></div>
+      <div class="fg"><label>Category</label>
+        <select id="eBkCategory">${BUCKET_CATS.map(c=>`<option value="${c}" ${it.category===c?'selected':''}>${BUCKET_ICONS[c]} ${c}</option>`).join('')}</select></div>
+      <div class="fg"><label>Why does this matter to you?</label>
+        <textarea id="eBkWhy" rows="3" maxlength="300">${esc(it.why||'')}</textarea></div>
+      <div class="fg"><label>Target date (optional)</label>
+        <input type="date" id="eBkTargetDate" value="${it.targetDate||''}"></div>`;
   }else if(type==='sticky'){
     f.innerHTML=`
       <div class="fg"><label>Title <span class="req">*</span></label>
@@ -2363,6 +2495,12 @@ function openItemEdit(id,listId){
       if(!t){showE('eGTErr','eGT');ok=false;}else{hideE('eGTErr','eGT');it2.title=t;}
       if(!desc){showE('eGDescErr','eGDesc');ok=false;}else{hideE('eGDescErr','eGDesc');it2.desc=desc;}
       it2.date=v('eGD');
+    }else if(type==='bucket'){
+      const t=v('eBkTitle');
+      if(!t){showE('eBkTitleErr','eBkTitle');ok=false;}else{hideE('eBkTitleErr','eBkTitle');it2.title=t;}
+      it2.category=document.getElementById('eBkCategory')?.value||it2.category;
+      it2.why=v('eBkWhy');
+      it2.targetDate=v('eBkTargetDate')||null;
     }else if(type==='sticky'){
       const t=v('eST'),desc=v('eSDesc');
       if(!t){showE('eSTErr','eST');ok=false;}else{hideE('eSTErr','eST');it2.title=t;}
